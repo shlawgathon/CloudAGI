@@ -37,24 +37,31 @@ export function getPlanMetadata() {
   };
 }
 
-async function getPlanScheme() {
+async function getPlanScheme(planId?: string) {
   return resolveScheme(
     getPayments(),
-    config.nevermined.planId,
+    planId || config.nevermined.planId,
     config.nevermined.paymentRail === "fiat" ? "nvm:card-delegation" : "nvm:erc4337"
   );
 }
 
-export async function buildPaymentRequirement(endpoint: string, method: string) {
+export async function buildPaymentRequirement(
+  endpoint: string,
+  method: string,
+  servicePlanId?: string,
+  serviceAgentId?: string
+) {
   if (!isNeverminedConfigured()) {
     throw new Error("Nevermined is not configured");
   }
 
-  const scheme = await getPlanScheme();
+  const planId = servicePlanId || config.nevermined.planId;
+  const agentId = serviceAgentId || config.nevermined.agentId;
+  const scheme = await getPlanScheme(planId);
 
-  return buildPaymentRequired(config.nevermined.planId, {
+  return buildPaymentRequired(planId, {
     endpoint,
-    agentId: config.nevermined.agentId,
+    agentId,
     httpVerb: method,
     environment: config.nevermined.environment as never,
     scheme
@@ -65,9 +72,11 @@ export async function verifyAccessToken(
   accessToken: string,
   endpoint: string,
   method: string,
-  maxAmount: bigint
+  maxAmount: bigint,
+  servicePlanId?: string,
+  serviceAgentId?: string
 ): Promise<VerificationResult> {
-  const paymentRequired = await buildPaymentRequirement(endpoint, method);
+  const paymentRequired = await buildPaymentRequirement(endpoint, method, servicePlanId, serviceAgentId);
 
   const verification = await getPayments().facilitator.verifyPermissions({
     paymentRequired,
@@ -82,9 +91,11 @@ export async function settleAccessToken(
   accessToken: string,
   endpoint: string,
   method: string,
-  maxAmount: bigint
+  maxAmount: bigint,
+  servicePlanId?: string,
+  serviceAgentId?: string
 ) {
-  const paymentRequired = await buildPaymentRequirement(endpoint, method);
+  const paymentRequired = await buildPaymentRequirement(endpoint, method, servicePlanId, serviceAgentId);
 
   return getPayments().facilitator.settlePermissions({
     paymentRequired,

@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "register:nevermined": "bun run src/scripts/register-nevermined.ts",
     "register:all-services": "bun run src/scripts/register-all-services.ts",
-    "deploy:trinity": "bun run src/scripts/deploy-trinity-system.ts"
+    "deploy:trinity": "bun run src/scripts/deploy-trinity-system.ts",
+    "buy": "bun run src/scripts/buy-from-marketplace.ts"
   },
   "dependencies": {
     "@nevermined-io/payments": "^1.1.6",

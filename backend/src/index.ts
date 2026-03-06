@@ -153,9 +153,11 @@ function getPublicBaseUrl(req: Request): string {
 async function paymentRequiredResponse(
   endpoint: string,
   method: string,
-  message: string
+  message: string,
+  planId?: string,
+  agentId?: string
 ): Promise<Response> {
-  const paymentRequired = await buildPaymentRequirement(endpoint, method);
+  const paymentRequired = await buildPaymentRequirement(endpoint, method, planId, agentId);
 
   return json(
     {
@@ -669,30 +671,38 @@ async function router(req: Request): Promise<Response> {
     if (isNeverminedConfigured() && svc.planId) {
       const accessToken = getAccessToken(req);
       const endpoint = `/v1/services/${serviceId}/execute`;
+      const sPlanId = svc.planId;
+      const sAgentId = svc.agentId;
 
       if (!accessToken) {
         return await paymentRequiredResponse(
           endpoint,
           "POST",
-          `Payment required for ${svc.name}. Send a valid x402 access token in PAYMENT-SIGNATURE.`
+          `Payment required for ${svc.name}. Send a valid x402 access token in PAYMENT-SIGNATURE.`,
+          sPlanId,
+          sAgentId
         );
       }
 
       try {
-        const verification = await verifyAccessToken(accessToken, endpoint, "POST", 1n);
+        const verification = await verifyAccessToken(accessToken, endpoint, "POST", 1n, sPlanId, sAgentId);
         if (!verification.isValid) {
           return await paymentRequiredResponse(
             endpoint,
             "POST",
-            verification.invalidReason || "Invalid payment token."
+            verification.invalidReason || "Invalid payment token.",
+            sPlanId,
+            sAgentId
           );
         }
-        await settleAccessToken(accessToken, endpoint, "POST", 1n);
+        await settleAccessToken(accessToken, endpoint, "POST", 1n, sPlanId, sAgentId);
       } catch {
         return await paymentRequiredResponse(
           endpoint,
           "POST",
-          "Payment verification failed."
+          "Payment verification failed.",
+          sPlanId,
+          sAgentId
         );
       }
     }
