@@ -384,16 +384,73 @@ async function router(req: Request): Promise<Response> {
 
   if (path === "/.well-known/agent.json" && req.method === "GET") {
     const baseUrl = getPublicBaseUrl(req);
-    const services = getAllServices().map((s) => ({
-      ...getServicePublicInfo(s),
-      executeUrl: `${baseUrl}/v1/services/${s.id}/execute`,
-    }));
+
+    const inputSchemas: Record<string, object> = {
+      "gpu-compute": {
+        type: "object",
+        required: ["command"],
+        properties: {
+          command: { type: "array", items: { type: "string" }, description: "Command to execute" },
+          gpu: { type: "string", enum: ["none", "T4", "A10G", "A100", "H100"], default: "none" },
+          image: { type: "string", default: "python:3.13" },
+          timeoutSecs: { type: "number", default: 1800 },
+        },
+      },
+      "ai-research": {
+        type: "object",
+        required: ["query"],
+        properties: {
+          query: { type: "string", description: "Natural language search query" },
+          numResults: { type: "number", default: 5 },
+          type: { type: "string", enum: ["auto", "neural", "keyword"], default: "auto" },
+        },
+      },
+      "web-scraper": {
+        type: "object",
+        properties: {
+          url: { type: "string", description: "URL to scrape" },
+          actorId: { type: "string", description: "Apify actor ID (alternative to url)" },
+          maxPages: { type: "number", default: 1 },
+        },
+      },
+      "code-review": {
+        type: "object",
+        required: ["code"],
+        properties: {
+          code: { type: "string", description: "Code to review" },
+          language: { type: "string", default: "typescript" },
+          focus: { type: "array", items: { type: "string" }, default: ["bugs", "security", "performance"] },
+        },
+      },
+      "smart-search": {
+        type: "object",
+        required: ["query"],
+        properties: {
+          query: { type: "string", description: "Search query" },
+          numResults: { type: "number", default: 5 },
+          sources: { type: "array", items: { type: "string" }, default: ["exa"] },
+        },
+      },
+    };
+
+    const services = getAllServices().map((s) => {
+      const registered = getRegisteredService(s.id);
+      return {
+        ...getServicePublicInfo(s),
+        executeUrl: `${baseUrl}/v1/services/${s.id}/execute`,
+        agentId: registered?.agentId || undefined,
+        planId: registered?.planId || undefined,
+        instructions: `POST ${baseUrl}/v1/services/${s.id}/execute with JSON body. Include x402 PAYMENT-SIGNATURE header for paid access.`,
+        inputSchema: inputSchemas[s.id] || undefined,
+      };
+    });
 
     return json({
-      name: config.offerName,
+      name: "CloudAGI",
+      author: "CloudAGI",
       version: config.version,
       description:
-        "CloudAGI is a multi-service AI platform offering GPU compute, neural search, web scraping, code review, and smart search. All services are paid via Nevermined x402 protocol.",
+        "CloudAGI is a multi-service AI cloud platform offering GPU compute, neural search, web scraping, AI code review, and smart search. All services are paid via Nevermined x402 protocol. Built for agent-to-agent commerce.",
       url: baseUrl,
       services,
       endpoints: {

@@ -1,0 +1,30 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cloudagi-backend
+    env_file:
+      - ./backend/.env
+    ports:
+      - "3001:3001"
+    volumes:
+      - artifacts:/app/data/artifacts
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    container_name: cloudagi-frontend
+    ports:
+      - "3002:3000"
+    environment:
+      BACKEND_URL: http://backend:3001
+      NEXT_PUBLIC_API_BASE_URL: ""
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  artifacts:

@@ -63,6 +63,10 @@ export const config = {
   },
   anthropic: {
     apiKey: process.env.ANTHROPIC_API_KEY || ""
+  },
+  openrouter: {
+    apiKey: process.env.OPENROUTER_API_KEY || "",
+    model: process.env.OPENROUTER_MODEL || "anthropic/claude-sonnet-4.6"
   }
 } as const;
 

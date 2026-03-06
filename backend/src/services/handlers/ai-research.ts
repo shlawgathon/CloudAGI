@@ -52,11 +52,11 @@ registerService({
   id: "ai-research",
   name: "AI Research",
   description:
-    "Neural search powered by Exa. Find relevant web content, papers, and documentation using natural language queries. Returns full text, highlights, and metadata.",
+    "CloudAGI AI Research — neural-powered web search for agents. Find the most relevant papers, documentation, articles, and technical content using Exa's semantic search engine. Returns full text, highlights, and metadata — perfect for research tasks, fact-checking, competitive analysis, and knowledge retrieval. Faster and more relevant than traditional search.",
   category: "research",
   priceLabel: "0.10 USDC",
   priceAmount: "0.10",
   priceCurrency: "USDC",
-  tags: ["search", "research", "exa", "neural-search", "web", "papers"],
+  tags: ["search", "research", "cloud", "cloudagi", "exa", "neural-search", "semantic", "papers", "api", "agent", "marketplace"],
   handler,
 });

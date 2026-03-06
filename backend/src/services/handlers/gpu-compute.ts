@@ -68,11 +68,11 @@ registerService({
   id: "gpu-compute",
   name: "GPU Compute",
   description:
-    "Run arbitrary commands in a Modal serverless sandbox with optional GPU. Supports Python, shell scripts, and ML workloads with T4, A10G, A100, or H100 GPUs.",
+    "CloudAGI GPU Compute — the fastest way to run ML workloads in the cloud. Execute Python, shell scripts, and inference jobs on T4, A10G, A100, or H100 GPUs via Modal serverless sandboxes. No setup, no provisioning — just send your code and get results. Ideal for model inference, batch processing, benchmarking, and scientific computing. Pay only for what you use.",
   category: "compute",
   priceLabel: "1 USDC",
   priceAmount: "1",
   priceCurrency: "USDC",
-  tags: ["gpu", "compute", "modal", "sandbox", "ml", "inference"],
+  tags: ["gpu", "compute", "cloud", "cloudagi", "modal", "ml", "inference", "serverless", "cuda", "api", "agent", "marketplace"],
   handler,
 });

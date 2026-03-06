@@ -53,11 +53,11 @@ registerService({
   id: "web-scraper",
   name: "Web Scraper",
   description:
-    "Scrape and extract structured data from any website using Apify. Supports custom actors, content crawling, and data extraction with 24K+ available scrapers.",
+    "CloudAGI Web Scraper — extract structured data from any website. Powered by Apify's 24,000+ cloud scrapers, this service handles JavaScript-rendered pages, pagination, and anti-bot protection. Returns clean, structured JSON from any URL. Use for price monitoring, lead generation, content aggregation, and market research.",
   category: "data",
   priceLabel: "0.20 USDC",
   priceAmount: "0.20",
   priceCurrency: "USDC",
-  tags: ["scraping", "apify", "web", "data", "extraction", "crawler"],
+  tags: ["scraping", "cloud", "cloudagi", "apify", "web", "data", "extraction", "api", "agent", "marketplace"],
   handler,
 });

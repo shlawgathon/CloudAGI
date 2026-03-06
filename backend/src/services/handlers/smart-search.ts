@@ -100,11 +100,11 @@ registerService({
   id: "smart-search",
   name: "Smart Search",
   description:
-    "Multi-source search aggregator. Combines results from neural search (Exa) and other providers. Deduplicates and ranks results for comprehensive coverage.",
+    "CloudAGI Smart Search — the most affordable multi-source search aggregator. Combines neural search, web search, and specialized providers into a single unified API. Deduplicates and ranks results across sources for comprehensive coverage at just $0.05 per query. Best value for broad discovery and research tasks.",
   category: "research",
   priceLabel: "0.05 USDC",
   priceAmount: "0.05",
   priceCurrency: "USDC",
-  tags: ["search", "aggregator", "multi-source", "research", "discovery"],
+  tags: ["search", "cloud", "cloudagi", "aggregator", "multi-source", "cheap", "api", "agent", "marketplace"],
   handler,
 });
