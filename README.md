@@ -107,6 +107,7 @@ Important backend variables:
 - `HOST`
 - `APP_BASE_URL`
 - `ADMIN_KEY`
+- `CORS_ORIGIN` — allowed origin for CORS (default: `https://cloudagi.org`, use `*` for local dev)
 - `MODAL_APP_NAME`
 - `MODAL_IMAGE`
 - `MODAL_ENVIRONMENT_NAME`
@@ -212,9 +213,43 @@ bun run typecheck
 bun run build
 ```
 
+## Production Deployment
+
+A `.env.production` template is included with all required variables for VPS deployment.
+
+### Frontend (Vercel)
+
+```bash
+cd web
+vercel --prod
+```
+
+Set these env vars in Vercel:
+
+- `NEXT_PUBLIC_API_BASE_URL=https://api.cloudagi.org`
+- `BACKEND_URL=https://api.cloudagi.org`
+
+Configure `cloudagi.org` as a custom domain in Vercel, then add a CNAME record in Cloudflare:
+
+- `cloudagi.org` → `cname.vercel-dns.com` (proxied)
+
+### Backend (Docker on VPS)
+
+```bash
+docker build -t cloudagi .
+docker run --env-file .env.production -p 3000:3000 cloudagi
+```
+
+Add an A record in Cloudflare for the VPS:
+
+- `api.cloudagi.org` → VPS IP (proxied)
+
+Cloudflare proxy handles SSL termination — the backend only needs to expose port 3000 over HTTP.
+
 ## Important Files
 
 - [`.env`](./.env)
+- [`.env.production`](./.env.production) — production env template for VPS
 - [`web/.env.example`](./web/.env.example)
 - [`src/index.ts`](./src/index.ts)
 - [`src/jobs/modal.ts`](./src/jobs/modal.ts)
