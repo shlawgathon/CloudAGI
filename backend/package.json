@@ -10,6 +10,7 @@
     "dev:tunnel": "./scripts/run-cloudflare-tunnel.sh",
     "typecheck": "tsc --noEmit",
     "register:nevermined": "bun run src/scripts/register-nevermined.ts",
+    "register:all-services": "bun run src/scripts/register-all-services.ts",
     "deploy:trinity": "bun run src/scripts/deploy-trinity-system.ts"
   },
   "dependencies": {

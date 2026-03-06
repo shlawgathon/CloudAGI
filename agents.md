@@ -58,6 +58,23 @@ Every agent is a self-contained markdown file. The pattern works everywhere:
 
 ## Skills
 
+### Nevermined Payments
+
+Location: `.claude/skills/nevermined-payments/SKILL.md`
+
+**What it does:** Comprehensive guide for Nevermined marketplace integration - agent registration, payment plan creation, x402 payment verification/settlement, Discovery API, and A2A protocol.
+
+**Use in prompts:**
+```
+Read .claude/skills/nevermined-payments/SKILL.md and help me register a new service on the Nevermined marketplace.
+```
+
+**Service development pattern:**
+1. Create handler in `backend/src/services/handlers/`
+2. Call `registerService()` with service metadata
+3. Import in `backend/src/services/init.ts`
+4. Run `cd backend && bun run register:all-services`
+
 ### Modal Serverless GPU
 
 Location: `.agents/skills/modal-serverless-gpu/` (symlinked into each tool's directory)
@@ -97,6 +114,9 @@ Not sure which agent to use? Here's a quick guide:
 | "Profile GPU inference speed" | Performance Benchmarker |
 | "Plan next sprint's work" | Sprint Prioritizer |
 | "Coordinate multiple agents" | Agents Orchestrator |
+| "Register a Nevermined agent" | Backend Architect + Nevermined skill |
+| "Add a new marketplace service" | Backend Architect + Nevermined skill |
+| "Debug payment flow" | API Tester + Nevermined skill |
 
 ## Team Setup
 
