@@ -31,6 +31,8 @@ export const config = {
   offerPriceUnits,
   paymentCurrency,
   offerCredits: BigInt(process.env.CLOUDAGI_PLAN_CREDITS || "1"),
+  creditsPerHour: 60,
+  pricePerHour: process.env.CLOUDAGI_PRICE_PER_HOUR || "25",
   modal: {
     appName: process.env.MODAL_APP_NAME || "cloudagi",
     image: process.env.MODAL_IMAGE || "python:3.13",

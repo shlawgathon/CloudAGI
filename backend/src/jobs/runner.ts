@@ -3,6 +3,7 @@ import type { AgentRole, OrderAgentExecution, OrderRecord } from "../orders/type
 import { runAgentStepOnModal } from "./modal";
 import { trinityClient } from "../orchestration/trinity";
 import { config } from "../config";
+import { getPlanBalance, settleAccessToken } from "../payments/nevermined";
 
 export interface TrinityExecuteStepInput {
   orderId: string;
@@ -130,11 +131,60 @@ export async function executeTrinityStep(input: TrinityExecuteStepInput) {
   appendOrderLog(input.orderId, `Executing ${input.role} step ${input.stepId} in Modal...`);
 
   try {
+    // Check remaining credits before launching sandbox
+    const order2 = orderStore.get(input.orderId) as OrderRecord;
+    if (order2.accessToken && order2.nevermined?.planId) {
+      try {
+        const { balance } = await getPlanBalance(order2.nevermined.planId);
+        appendOrderLog(input.orderId, `Credits remaining before step: ${balance}`);
+        if (balance < 1) {
+          appendOrderLog(input.orderId, `Insufficient credits for ${input.role} step ${input.stepId}. Aborting.`);
+          orderStore.patchAgentExecution(input.orderId, input.stepId, {
+            status: "failed",
+            completedAt: new Date().toISOString(),
+            stderr: "Insufficient credits"
+          });
+          orderStore.setOrchestrationStatus(input.orderId, "failed");
+          throw new Error(`Insufficient credits for step ${input.stepId}`);
+        }
+      } catch (balanceErr) {
+        if (balanceErr instanceof Error && balanceErr.message.includes("Insufficient credits")) {
+          throw balanceErr;
+        }
+        appendOrderLog(input.orderId, `Balance check skipped: ${balanceErr instanceof Error ? balanceErr.message : String(balanceErr)}`);
+      }
+    }
+
     const result = await runAgentStepOnModal({
       order: orderStore.get(input.orderId) as OrderRecord,
       role: input.role,
       stepId: input.stepId
     });
+
+    // Compute credits used: ceil(durationMs / 60_000), minimum 1
+    const creditsUsed = Math.max(1, Math.ceil(result.durationMs / 60_000));
+
+    // Settle credits with Nevermined
+    const currentOrder = orderStore.get(input.orderId) as OrderRecord;
+    if (currentOrder.accessToken && currentOrder.nevermined?.planId) {
+      try {
+        const endpoint = `/v1/orders/${input.orderId}/start`;
+        await settleAccessToken(
+          currentOrder.accessToken,
+          endpoint,
+          "POST",
+          BigInt(creditsUsed),
+          currentOrder.nevermined.planId,
+          currentOrder.nevermined.agentId
+        );
+        appendOrderLog(input.orderId, `Settled ${creditsUsed} credit(s) for ${input.role} step (${result.durationMs}ms)`);
+      } catch (settleErr) {
+        appendOrderLog(input.orderId, `Credit settlement failed: ${settleErr instanceof Error ? settleErr.message : String(settleErr)}`);
+      }
+    }
+
+    // Update compute summary on order
+    orderStore.updateCompute(input.orderId, result.durationMs, creditsUsed);
 
     orderStore.addArtifact(input.orderId, result.artifact);
     const updated = orderStore.patchAgentExecution(input.orderId, input.stepId, {
@@ -146,13 +196,15 @@ export async function executeTrinityStep(input: TrinityExecuteStepInput) {
       exitCode: result.exitCode,
       artifactNames: [result.artifact.name],
       stdout: result.stdout,
-      stderr: result.stderr
+      stderr: result.stderr,
+      durationMs: result.durationMs,
+      creditsUsed
     });
 
     appendOrderLog(
       input.orderId,
       [
-        `${input.role} completed in sandbox ${result.sandboxId}`,
+        `${input.role} completed in sandbox ${result.sandboxId} (${result.durationMs}ms, ${creditsUsed} credit(s))`,
         "# stdout",
         result.stdout,
         "",
@@ -231,7 +283,11 @@ export function finalizeTrinityRun(input: TrinityFinalizeRunInput): OrderRecord 
   const hasFailures = order.orchestration.agents.some((agent) => agent.status === "failed");
   const finalStatus = hasFailures ? "failed" : input.status;
 
-  appendOrderLog(input.orderId, `Trinity finalized run ${input.runId} with status ${finalStatus}`);
+  const compute = order.compute;
+  const computeLog = compute
+    ? ` | Compute: ${compute.totalDurationMs}ms total, ${compute.totalCreditsUsed} credit(s) used`
+    : "";
+  appendOrderLog(input.orderId, `Trinity finalized run ${input.runId} with status ${finalStatus}${computeLog}`);
   return orderStore.setOrchestrationStatus(input.orderId, finalStatus, {
     finalizedAt: new Date().toISOString()
   });

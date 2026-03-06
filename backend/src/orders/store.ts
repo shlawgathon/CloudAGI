@@ -207,6 +207,30 @@ class OrderStore {
       }
     });
   }
+  stashAccessToken(orderId: string, token: string): OrderRecord {
+    return this.update(orderId, { accessToken: token });
+  }
+
+  updateCompute(orderId: string, stepDurationMs: number, stepCreditsUsed: number): OrderRecord {
+    const current = this.get(orderId);
+    if (!current) {
+      throw new Error(`Order ${orderId} not found`);
+    }
+
+    const compute = current.compute || {
+      totalDurationMs: 0,
+      totalCreditsUsed: 0,
+      gpuHoursRequested: current.gpuHours || 1
+    };
+
+    return this.update(orderId, {
+      compute: {
+        ...compute,
+        totalDurationMs: compute.totalDurationMs + stepDurationMs,
+        totalCreditsUsed: compute.totalCreditsUsed + stepCreditsUsed
+      }
+    });
+  }
 }
 
 export const orderStore = new OrderStore();
