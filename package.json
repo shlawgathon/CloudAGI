@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "bun run --watch src/index.ts",
     "start": "bun run src/index.ts",
+    "dev:clear": "./scripts/clear-runtime.sh",
+    "dev:tunnel": "./scripts/run-cloudflare-tunnel.sh",
     "typecheck": "tsc --noEmit",
     "register:nevermined": "bun run src/scripts/register-nevermined.ts"
   },

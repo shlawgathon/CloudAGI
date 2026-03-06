@@ -40,6 +40,12 @@ CloudAGI/
 
 You need two processes: backend and frontend.
 
+Before starting, clear any stale local listeners and old Cloudflare tunnels:
+
+```bash
+bun run dev:clear
+```
+
 ### 1. Backend
 
 From the repo root:
@@ -51,12 +57,12 @@ bun run dev
 
 Backend URL:
 
-- [http://localhost:3000](http://localhost:3000)
+- [http://localhost:3001](http://localhost:3001)
 
 Useful backend routes:
 
-- [http://localhost:3000/v1/health](http://localhost:3000/v1/health)
-- [http://localhost:3000/.well-known/agent.json](http://localhost:3000/.well-known/agent.json)
+- [http://localhost:3001/v1/health](http://localhost:3001/v1/health)
+- [http://localhost:3001/.well-known/agent.json](http://localhost:3001/.well-known/agent.json)
 
 ### 2. Frontend
 
@@ -71,7 +77,23 @@ bun run dev
 
 Frontend URL:
 
-- [http://localhost:3001](http://localhost:3001)
+- [http://localhost:3000](http://localhost:3000)
+
+### 3. Cloudflare Tunnel
+
+If you need a public backend URL for Nevermined:
+
+```bash
+bun run dev:tunnel
+```
+
+This always tunnels the backend on `3001` and kills any older `cloudflared` process first.
+
+Important:
+
+- The quick Tunnel URL changes every time you restart it.
+- If you want `/.well-known/agent.json` and Nevermined discovery to point at the current public URL, update `APP_BASE_URL` in [`.env`](/Users/xiao/CloudAGI/.env) to the new tunnel URL.
+- If your Nevermined agent has already been registered, update the agent metadata after changing `APP_BASE_URL`.
 
 ## Environment Files
 
@@ -103,13 +125,24 @@ The Next app reads config from [`web/.env.local`](/Users/xiao/CloudAGI/web/.env.
 
 Important frontend variables:
 
-- `BACKEND_URL=http://127.0.0.1:3000`
+- `BACKEND_URL=http://127.0.0.1:3001`
 - `NEXT_PUBLIC_API_BASE_URL=`
 
 Notes:
 
 - If `NEXT_PUBLIC_API_BASE_URL` is empty, the frontend uses Next rewrites from [`web/next.config.ts`](/Users/xiao/CloudAGI/web/next.config.ts) and proxies `/api/*` to `BACKEND_URL`.
-- For normal local development, the default `BACKEND_URL=http://127.0.0.1:3000` is correct.
+- For normal local development, the default `BACKEND_URL=http://127.0.0.1:3001` is correct.
+
+## Runtime Scripts
+
+- `bun run dev:clear`
+  Clears local listeners on `3000`, `3001`, and `3002`, and kills existing `cloudflared` processes.
+- `bun run dev`
+  Starts the Bun backend on `3001`.
+- `cd web && bun run dev`
+  Starts the Next frontend on `3000`.
+- `bun run dev:tunnel`
+  Starts a fresh Cloudflare quick tunnel to the backend on `3001`.
 
 ## Modal Auth
 
@@ -160,6 +193,8 @@ That script uses:
 - Artifacts are written to `data/artifacts/`.
 - The backend is API-only; the UI now lives entirely in [`web/`](/Users/xiao/CloudAGI/web).
 - A real paid transaction still requires valid Nevermined credentials, `NVM_AGENT_ID`, `NVM_PLAN_ID`, and a reachable public deployment URL.
+- The current USDC plan is not yet subscribed for the builder wallet, so Nevermined verification returns a payment failure until a real subscriber orders the plan and generates a fresh x402 token.
+- Failed Nevermined verification now returns `402` with a payment challenge and troubleshooting message instead of a raw `500`.
 
 ## Validation Commands
 
