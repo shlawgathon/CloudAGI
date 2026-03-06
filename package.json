@@ -9,7 +9,8 @@
     "dev:clear": "./scripts/clear-runtime.sh",
     "dev:tunnel": "./scripts/run-cloudflare-tunnel.sh",
     "typecheck": "tsc --noEmit",
-    "register:nevermined": "bun run src/scripts/register-nevermined.ts"
+    "register:nevermined": "bun run src/scripts/register-nevermined.ts",
+    "deploy:trinity": "bun run src/scripts/deploy-trinity-system.ts"
   },
   "dependencies": {
     "@nevermined-io/payments": "^1.1.6",

@@ -1,13 +1,14 @@
 # CloudAGI
 
-CloudAGI is a direct AI compute service. A customer creates an order, pays for access through Nevermined with either a crypto or fiat-priced plan, CloudAGI runs the job on Modal, and the customer gets logs plus an artifact.
+CloudAGI is a direct AI orchestration service. A customer creates an order, pays for access through Nevermined with either a crypto or fiat-priced plan, CloudAGI triggers a fixed Trinity workflow, executes each agent step in Modal sandboxes, and returns logs plus artifacts.
 
 This repo implements the first transaction path. It is intentionally not a marketplace, not a provider network, and not a multi-tenant control plane.
 
 ## Stack
 
 - Bun + TypeScript backend
-- Modal JavaScript SDK for execution
+- Trinity orchestration triggered over HTTP/API
+- Modal JavaScript SDK for per-agent sandbox execution
 - Nevermined Payments SDK for crypto or Stripe-backed fiat plans plus x402 payment gating
 - Next.js 16 + React + Tailwind + TypeScript frontend in [`web/`](./web)
 
@@ -29,7 +30,7 @@ This repo implements the first transaction path. It is intentionally not a marke
 
 ```text
 CloudAGI/
-├── src/          # Bun API, Modal runner, Nevermined integration
+├── src/          # Bun API, Trinity adapter, Modal execution, Nevermined integration
 ├── web/          # Next.js frontend
 ├── docs/         # Product / implementation notes
 ├── .env          # Backend runtime config
@@ -113,6 +114,11 @@ Important backend variables:
 - `MODAL_ENVIRONMENT_NAME`
 - `MODAL_GPU`
 - `MODAL_TIMEOUT_SECS`
+- `TRINITY_BASE_URL`
+- `TRINITY_API_KEY`
+- `TRINITY_SYSTEM_NAME`
+- `TRINITY_ORCHESTRATOR_AGENT`
+- `TRINITY_SHARED_SECRET`
 - `NVM_API_KEY`
 - `NVM_ENVIRONMENT`
 - `NVM_PAYMENT_RAIL`
@@ -191,8 +197,10 @@ That script uses:
 4. Customer generates an x402 access token.
 5. Customer calls `POST /v1/orders/:id/start` with `payment-signature`.
 6. CloudAGI verifies and settles the payment through Nevermined.
-7. CloudAGI launches the job on Modal.
-8. Logs and artifacts are exposed through the order status page.
+7. CloudAGI triggers the fixed Trinity system for the order.
+8. Trinity requests agent-step execution from CloudAGI.
+9. CloudAGI runs each requested step in a dedicated Modal sandbox.
+10. Logs and artifacts are exposed through the order status page.
 
 ## Current Limitations
 

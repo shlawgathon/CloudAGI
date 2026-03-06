@@ -13,7 +13,7 @@ const paymentCurrency = process.env.CLOUDAGI_PAYMENT_CURRENCY || (paymentRail ==
 const offerPriceLabel = process.env.CLOUDAGI_PRICE_LABEL || `${offerPriceAmount} ${paymentCurrency}`;
 const defaultPriceUnits =
   paymentRail === "fiat"
-    ? BigInt(Math.round(Number(offerPriceAmount)).toString())
+    ? BigInt(Math.round(Number(offerPriceAmount) * 100).toString())
     : BigInt(Math.round(Number(offerPriceAmount) * 1_000_000).toString());
 const offerPriceUnits = BigInt(process.env.CLOUDAGI_PRICE_UNITS || defaultPriceUnits.toString());
 
@@ -37,6 +37,13 @@ export const config = {
     environmentName: process.env.MODAL_ENVIRONMENT_NAME || "main",
     gpu: process.env.MODAL_GPU || "none",
     timeoutSecs: toInt(process.env.MODAL_TIMEOUT_SECS, 1800)
+  },
+  trinity: {
+    baseUrl: process.env.TRINITY_BASE_URL || "",
+    apiKey: process.env.TRINITY_API_KEY || "",
+    systemName: process.env.TRINITY_SYSTEM_NAME || "cloudagi-fixed-system",
+    orchestratorAgent: process.env.TRINITY_ORCHESTRATOR_AGENT || "orchestrator",
+    sharedSecret: process.env.TRINITY_SHARED_SECRET || ""
   },
   nevermined: {
     apiKey: process.env.NVM_API_KEY || "",

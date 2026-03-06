@@ -27,7 +27,8 @@ const scope = [
 
 const proofs = [
   "Nevermined-gated paid start endpoint",
-  "Modal-backed execution",
+  "Trinity-orchestrated agent flow",
+  "Modal-backed per-agent sandboxes",
   "Order status, logs, and artifact retrieval"
 ];
 

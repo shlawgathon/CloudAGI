@@ -1,8 +1,14 @@
 import { readFile } from "node:fs/promises";
 import { config, requireAdminKey } from "./config";
-import { startOrderJob } from "./jobs/runner";
+import {
+  executeTrinityStep,
+  finalizeTrinityRun,
+  recordTrinityStepCallback,
+  startOrderJob
+} from "./jobs/runner";
 import { orderStore } from "./orders/store";
 import type { CreateOrderInput } from "./orders/types";
+import { isTrinityConfigured } from "./orchestration/trinity";
 import {
   buildPaymentRequirement,
   getPlanMetadata,
@@ -13,7 +19,8 @@ import {
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": config.corsOrigin,
-  "Access-Control-Allow-Headers": "Content-Type, PAYMENT-SIGNATURE, payment-signature, x-admin-key",
+  "Access-Control-Allow-Headers":
+    "Content-Type, PAYMENT-SIGNATURE, payment-signature, x-admin-key, x-trinity-shared-secret",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS"
 };
 
@@ -55,6 +62,13 @@ function validateOrderInput(body: Partial<CreateOrderInput>): string | null {
 
 function getAccessToken(req: Request): string | null {
   return req.headers.get("PAYMENT-SIGNATURE") || req.headers.get("payment-signature");
+}
+
+function hasValidTrinitySecret(req: Request): boolean {
+  return Boolean(
+    config.trinity.sharedSecret &&
+      req.headers.get("x-trinity-shared-secret") === config.trinity.sharedSecret
+  );
 }
 
 function getPublicBaseUrl(req: Request): string {
@@ -152,8 +166,21 @@ async function handleStartOrder(req: Request, orderId: string): Promise<Response
     return json({ error: "Order not found" }, { status: 404 });
   }
 
+  if (order.status !== "awaiting_payment") {
+    return json({
+      ok: true,
+      orderId,
+      status: order.status,
+      orchestration: order.orchestration
+    });
+  }
+
   if (!isNeverminedConfigured()) {
     return json({ error: "Nevermined is not configured" }, { status: 503 });
+  }
+
+  if (!isTrinityConfigured()) {
+    return json({ error: "Trinity is not configured" }, { status: 503 });
   }
 
   const accessToken = getAccessToken(req);
@@ -204,12 +231,24 @@ async function handleStartOrder(req: Request, orderId: string): Promise<Response
     );
   }
 
-  void startOrderJob(orderId);
+  let nextOrder;
+  try {
+    nextOrder = await startOrderJob(orderId, getPublicBaseUrl(req));
+  } catch (error) {
+    console.error("Trinity trigger failed", error);
+    return json(
+      {
+        error: error instanceof Error ? error.message : String(error)
+      },
+      { status: 502 }
+    );
+  }
 
   return json({
     ok: true,
     orderId,
-    status: "running",
+    status: nextOrder.status,
+    orchestration: nextOrder.orchestration,
     payment: {
       success: settlement.success,
       transaction: settlement.transaction,
@@ -261,6 +300,64 @@ async function handleDownloadArtifact(orderId: string, artifactName: string): Pr
   });
 }
 
+async function handleInternalExecuteStep(req: Request): Promise<Response> {
+  if (!hasValidTrinitySecret(req)) {
+    return json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const body = await parseJson<{
+    orderId: string;
+    runId: string;
+    stepId: string;
+    role: "planner" | "executor" | "reviewer" | "packager";
+  }>(req);
+
+  const execution = await executeTrinityStep(body);
+  return json({
+    ok: true,
+    execution
+  });
+}
+
+async function handleInternalStepCallback(req: Request): Promise<Response> {
+  if (!hasValidTrinitySecret(req)) {
+    return json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const body = await parseJson<{
+    orderId: string;
+    runId: string;
+    stepId: string;
+    role: "planner" | "executor" | "reviewer" | "packager";
+    status: "succeeded" | "failed";
+    message?: string;
+  }>(req);
+
+  const order = recordTrinityStepCallback(body);
+  return json({
+    ok: true,
+    order
+  });
+}
+
+async function handleInternalFinalizeRun(req: Request): Promise<Response> {
+  if (!hasValidTrinitySecret(req)) {
+    return json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const body = await parseJson<{
+    orderId: string;
+    runId: string;
+    status: "succeeded" | "failed" | "canceled";
+  }>(req);
+
+  const order = finalizeTrinityRun(body);
+  return json({
+    ok: true,
+    order
+  });
+}
+
 async function router(req: Request): Promise<Response> {
   const url = new URL(req.url);
   const path = url.pathname;
@@ -284,7 +381,7 @@ async function router(req: Request): Promise<Response> {
       name: config.offerName,
       version: config.version,
       description:
-        "CloudAGI is a paid GPU execution service that runs AI jobs on Modal and returns logs plus artifacts.",
+        "CloudAGI is a paid AI orchestration service that verifies Nevermined payments, runs a fixed Trinity workflow, and executes each agent step in Modal sandboxes.",
       endpoints: {
         createOrder: `${baseUrl}/v1/orders`,
         startOrder: `${baseUrl}/v1/orders/{orderId}/start`,
@@ -308,7 +405,8 @@ async function router(req: Request): Promise<Response> {
       status: "ok",
       service: config.appName,
       version: config.version,
-      neverminedConfigured: isNeverminedConfigured()
+      neverminedConfigured: isNeverminedConfigured(),
+      trinityConfigured: isTrinityConfigured()
     });
   }
 
@@ -343,6 +441,18 @@ async function router(req: Request): Promise<Response> {
   const artifactDownloadMatch = path.match(/^\/v1\/orders\/([^/]+)\/artifacts\/([^/]+)$/);
   if (artifactDownloadMatch && req.method === "GET") {
     return handleDownloadArtifact(artifactDownloadMatch[1], artifactDownloadMatch[2]);
+  }
+
+  if (path === "/internal/trinity/execute-step" && req.method === "POST") {
+    return handleInternalExecuteStep(req);
+  }
+
+  if (path === "/internal/trinity/step-callback" && req.method === "POST") {
+    return handleInternalStepCallback(req);
+  }
+
+  if (path === "/internal/trinity/finalize-run" && req.method === "POST") {
+    return handleInternalFinalizeRun(req);
   }
 
   return json({ error: "Not found" }, { status: 404 });

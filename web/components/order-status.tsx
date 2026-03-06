@@ -7,6 +7,7 @@ function statusTone(status: Order["status"]) {
       return "text-[var(--success)] border-[color:rgba(114,208,166,0.35)] bg-[rgba(114,208,166,0.08)]";
     case "failed":
       return "text-red-200 border-red-400/25 bg-red-500/10";
+    case "orchestrating":
     case "running":
       return "text-[var(--accent-2)] border-[color:rgba(243,195,139,0.24)] bg-[rgba(243,195,139,0.08)]";
     default:
@@ -77,8 +78,8 @@ export function OrderStatus({
               value={<span className="font-mono text-xs">{order.command.join(" ")}</span>}
             />
             <Detail
-              label="Modal Sandbox"
-              value={order.modalSandboxId || "Not available yet"}
+              label="Trinity Run"
+              value={order.orchestration?.runId || "Not available yet"}
             />
             <Detail label="Expected Output" value={order.expectedOutput} />
             <Detail label="Contact" value={order.contact} />
@@ -110,6 +111,63 @@ export function OrderStatus({
           </div>
         </section>
       </div>
+
+      <section className="rounded-[2rem] border border-white/10 bg-[var(--panel)] p-6">
+        <p className="mb-3 text-xs uppercase tracking-[0.28em] text-[var(--accent-2)]">
+          Orchestration
+        </p>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <Detail label="Provider" value={order.orchestration?.provider || "Not started"} />
+          <Detail label="System" value={order.orchestration?.systemName || "Not started"} />
+          <Detail
+            label="Orchestrator"
+            value={order.orchestration?.orchestratorAgent || "Not started"}
+          />
+          <Detail label="Run Status" value={order.orchestration?.status || "Not started"} />
+        </div>
+
+        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          {(order.orchestration?.agents || []).length === 0 ? (
+            <div className="rounded-[1.5rem] border border-dashed border-white/10 px-4 py-5 text-sm text-[var(--muted)]">
+              Trinity has not requested any agent steps yet.
+            </div>
+          ) : (
+            order.orchestration?.agents.map((agent) => (
+              <div
+                key={agent.stepId}
+                className="rounded-[1.5rem] border border-white/8 bg-black/20 p-5"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="text-sm font-medium capitalize text-white">{agent.role}</div>
+                    <div className="mt-1 font-mono text-xs text-[var(--muted)]">{agent.stepId}</div>
+                  </div>
+                  <div className={`rounded-full border px-3 py-1 text-xs ${statusTone(agent.status === "failed" ? "failed" : agent.status === "succeeded" ? "succeeded" : "orchestrating")}`}>
+                    {agent.status}
+                  </div>
+                </div>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <Detail label="GPU" value={agent.gpu} />
+                  <Detail label="Sandbox" value={agent.modalSandboxId || "Pending"} />
+                  <Detail
+                    label="Exit Code"
+                    value={agent.exitCode === undefined ? "Pending" : String(agent.exitCode)}
+                  />
+                  <Detail label="Callback" value={agent.callbackStatus || "pending"} />
+                </div>
+                <div className="mt-4 rounded-[1.25rem] border border-white/8 bg-black/25 p-4">
+                  <div className="text-xs uppercase tracking-[0.22em] text-[var(--muted)]">
+                    Command
+                  </div>
+                  <div className="mt-2 break-all font-mono text-xs text-white/90">
+                    {agent.command.join(" ")}
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </section>
 
       <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
         <section className="rounded-[2rem] border border-white/10 bg-[var(--panel-strong)] p-6">
