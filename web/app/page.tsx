@@ -1,4 +1,5 @@
 import type { ComponentType } from "react";
+import Image from "next/image";
 import { Bot, Braces, Cpu, Receipt, ShieldCheck, Sparkles } from "lucide-react";
 import { StatusSearch } from "@/components/status-search";
 import { AnimatedHero } from "@/components/ui/animated-hero";
@@ -91,8 +92,8 @@ export default function Page() {
       <div className="mx-auto w-full max-w-[92rem] px-4 pb-14 pt-5 sm:px-6 lg:px-10">
         <header className="mb-5 flex flex-col gap-4 rounded-full border border-white/10 bg-white/[0.04] px-4 py-3 backdrop-blur md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-3">
-            <div className="grid h-10 w-10 place-items-center rounded-full border border-white/10 bg-[linear-gradient(180deg,rgba(18,30,47,0.98),rgba(10,17,29,0.98))] text-sm font-semibold text-[var(--accent-soft)]">
-              CA
+            <div className="h-[3rem] w-[3rem] shrink-0 overflow-hidden rounded-full">
+              <Image src="/icon.png" alt="CloudAGI" width={80} height={80} className="h-full w-full object-contain" />
             </div>
             <div>
               <div className="font-[var(--font-display)] text-lg text-white">CloudAGI</div>

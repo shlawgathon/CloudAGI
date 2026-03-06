@@ -27,6 +27,7 @@ export async function createOrder(payload: {
   command: string[];
   inputNotes: string;
   expectedOutput: string;
+  gpuHours?: number;
 }): Promise<CreateOrderResponse> {
   const response = await fetch(apiUrl("/v1/orders"), {
     method: "POST",
@@ -47,6 +48,13 @@ export async function fetchOrder(orderId: string): Promise<Order> {
   return payload.order;
 }
 
+/** Client-side fetch (no Next.js server cache) for polling */
+export async function fetchOrderClient(orderId: string): Promise<Order> {
+  const response = await fetch(apiUrl(`/v1/orders/${orderId}`));
+  const payload = await readJson<{ order: Order }>(response);
+  return payload.order;
+}
+
 export async function fetchLogs(orderId: string): Promise<string> {
   const response = await fetch(apiUrl(`/v1/orders/${orderId}/logs`), {
     cache: "no-store"
@@ -59,6 +67,13 @@ export async function fetchLogs(orderId: string): Promise<string> {
   return response.text();
 }
 
+/** Client-side logs fetch for polling */
+export async function fetchLogsClient(orderId: string): Promise<string> {
+  const response = await fetch(apiUrl(`/v1/orders/${orderId}/logs`));
+  if (!response.ok) return "";
+  return response.text();
+}
+
 export async function fetchArtifacts(orderId: string): Promise<Artifact[]> {
   const response = await fetch(apiUrl(`/v1/orders/${orderId}/artifacts`), {
     cache: "no-store"
@@ -68,6 +83,14 @@ export async function fetchArtifacts(orderId: string): Promise<Artifact[]> {
     return [];
   }
 
+  const payload = (await response.json()) as { artifacts: Artifact[] };
+  return payload.artifacts;
+}
+
+/** Client-side artifacts fetch for polling */
+export async function fetchArtifactsClient(orderId: string): Promise<Artifact[]> {
+  const response = await fetch(apiUrl(`/v1/orders/${orderId}/artifacts`));
+  if (!response.ok) return [];
   const payload = (await response.json()) as { artifacts: Artifact[] };
   return payload.artifacts;
 }

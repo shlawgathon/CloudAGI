@@ -45,7 +45,7 @@ export default function GeneratePage() {
         </section>
 
         <section className="mt-5 shadow-[0_30px_90px_rgba(0,0,0,0.24)]">
-          <OrderForm reviewHref="/#loop" compact />
+          <OrderForm demo reviewHref="/#loop" compact />
         </section>
 
         <section className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">

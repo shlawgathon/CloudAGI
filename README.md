@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="web/app/icon.png" alt="CloudAGI" width="80" />
+</p>
+
 # CloudAGI
 
 CloudAGI is a multi-service AI platform on the Nevermined marketplace. It sells GPU compute, neural search, web scraping, AI code review, and smart search — all paid via the x402 protocol.
@@ -248,6 +252,162 @@ sequenceDiagram
 | GET    | `/v1/orders/:id/logs`            | Get logs                                  |
 | GET    | `/v1/orders/:id/artifacts`       | List artifacts                            |
 | GET    | `/v1/orders/:id/artifacts/:name` | Download artifact                         |
+
+## API Schemas
+
+### `POST /v1/orders` — Human order creation
+
+```jsonc
+// Request
+{
+  "customerName": "string", // required
+  "contact": "string", // required — email, Telegram, X handle
+  "jobType": "inference | eval | batch | custom", // required
+  "repoUrl": "string", // optional
+  "command": ["string", "..."], // required — non-empty array
+  "inputNotes": "string", // required
+  "expectedOutput": "string", // required
+  "gpuHours": 1, // optional, default 1 (1 credit = 1 GPU-minute)
+}
+```
+
+### `POST /v1/agent/orders` — Agent-to-agent order creation
+
+```jsonc
+// Request (agents use this endpoint)
+{
+  "agentName": "string",            // required if no agentId
+  "agentId": "string",              // required if no agentName
+  "contact": "string",              // optional (auto-generated from agent identity)
+  "jobType": "string",              // optional, default "custom"
+  "repoUrl": "string",              // optional
+  "command": ["string"] | "string", // required — array or single string
+  "objective": "string",            // optional (fallback for inputNotes)
+  "inputNotes": "string",           // required if no objective
+  "expectedOutput": "string",       // required
+  "gpuHours": 1                     // optional, default 1
+}
+```
+
+### Order creation response (both endpoints)
+
+```jsonc
+// Response 201
+{
+  "order": {
+    "id": "uuid",
+    "status": "awaiting_payment",
+    "customerName": "...",
+    "jobType": "batch",
+    "command": ["python", "-m", "..."],
+    "priceLabel": "$25.00",
+    "gpuHours": 1,
+    "createdAt": "ISO8601",
+  },
+  "payment": {
+    "type": "nevermined-x402", // or "not-configured"
+    "paymentRail": "fiat | crypto",
+    "agentId": "did:nv:...",
+    "planId": "did:nv:...",
+    "instructions": "Order the plan, generate x402 token, call /start",
+  },
+  "links": {
+    "order": "/v1/orders/{id}",
+    "start": "/v1/orders/{id}/start",
+    "logs": "/v1/orders/{id}/logs",
+    "artifacts": "/v1/orders/{id}/artifacts",
+  },
+}
+```
+
+### `POST /v1/orders/:id/start` — Start execution
+
+| Header              | Required | Description                            |
+| ------------------- | -------- | -------------------------------------- |
+| `PAYMENT-SIGNATURE` | Yes\*    | x402 access token from Nevermined      |
+| `x-demo`            | No       | Set to `"true"` to skip payment (demo) |
+
+\*Not required when `x-demo: true`.
+
+```jsonc
+// Response 200
+{
+  "ok": true,
+  "orderId": "uuid",
+  "status": "orchestrating",
+  "orchestration": {
+    "runId": "...",
+    "provider": "trinity",
+    "status": "running",
+  },
+  "compute": {
+    "totalDurationMs": 0,
+    "totalCreditsUsed": 0,
+    "gpuHoursRequested": 1,
+  },
+  "payment": { "success": true }, // or { "demo": true } in demo mode
+}
+```
+
+### `GET /v1/orders/:id` — Order status
+
+```jsonc
+// Response 200
+{
+  "order": {
+    "id": "uuid",
+    "status": "awaiting_payment | orchestrating | running | succeeded | failed",
+    "customerName": "...",
+    "jobType": "batch",
+    "command": ["..."],
+    "priceLabel": "$25.00",
+    "gpuHours": 1,
+    "createdAt": "ISO8601",
+    "compute": {
+      "totalDurationMs": 503000,
+      "totalCreditsUsed": 9,
+      "gpuHoursRequested": 1,
+    },
+    "orchestration": {
+      "runId": "...",
+      "provider": "trinity",
+      "systemName": "...",
+      "orchestratorAgent": "...",
+      "status": "running | succeeded | failed",
+      "agents": [
+        {
+          "stepId": "uuid",
+          "role": "planner | executor | reviewer | packager",
+          "status": "requested | running | succeeded | failed",
+          "gpu": "A10G",
+          "command": ["..."],
+          "modalSandboxId": "sb-...",
+          "exitCode": 0,
+          "callbackStatus": "pending | completed",
+          "durationMs": 120000,
+          "creditsUsed": 2,
+        },
+      ],
+    },
+  },
+}
+```
+
+### `POST /v1/services/:id/execute` — Service execution
+
+| Header              | Required | Description                       |
+| ------------------- | -------- | --------------------------------- |
+| `PAYMENT-SIGNATURE` | Yes      | x402 access token from Nevermined |
+
+**Service input schemas:**
+
+| Service        | Required Fields     | Optional Fields                                                 |
+| -------------- | ------------------- | --------------------------------------------------------------- |
+| `gpu-compute`  | `command: string[]` | `gpu` (none/T4/A10G/A100/H100), `image`, `timeoutSecs`          |
+| `ai-research`  | `query: string`     | `numResults` (default 5), `type` (auto/neural/keyword)          |
+| `web-scraper`  | —                   | `url`, `actorId`, `maxPages` (default 1)                        |
+| `code-review`  | `code: string`      | `language` (default typescript), `focus[]` (bugs/security/perf) |
+| `smart-search` | `query: string`     | `numResults` (default 5), `sources[]` (default ["exa"])         |
 
 ## Quick Start
 

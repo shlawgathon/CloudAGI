@@ -28,7 +28,7 @@ import { discoverBuyers, discoverSellers } from "./discovery/client";
 const corsHeaders = {
   "Access-Control-Allow-Origin": config.corsOrigin,
   "Access-Control-Allow-Headers":
-    "Content-Type, PAYMENT-SIGNATURE, payment-signature, x-admin-key, x-trinity-shared-secret",
+    "Content-Type, PAYMENT-SIGNATURE, payment-signature, x-admin-key, x-trinity-shared-secret, x-demo",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS"
 };
 
@@ -287,7 +287,9 @@ async function handleStartOrder(req: Request, orderId: string): Promise<Response
     });
   }
 
-  if (!isNeverminedConfigured()) {
+  const isDemo = req.headers.get("x-demo") === "true";
+
+  if (!isDemo && !isNeverminedConfigured()) {
     return json({ error: "Nevermined is not configured" }, { status: 503 });
   }
 
@@ -295,56 +297,61 @@ async function handleStartOrder(req: Request, orderId: string): Promise<Response
     return json({ error: "Trinity is not configured" }, { status: 503 });
   }
 
-  const accessToken = getAccessToken(req);
-  const endpoint = `/v1/orders/${orderId}/start`;
+  // Demo mode: skip payment verification + settlement
+  if (!isDemo) {
+    const accessToken = getAccessToken(req);
+    const endpoint = `/v1/orders/${orderId}/start`;
 
-  if (!accessToken) {
-    return await paymentRequiredResponse(
-      endpoint,
-      "POST",
-      "Payment required. Send a valid x402 access token in PAYMENT-SIGNATURE."
-    );
+    if (!accessToken) {
+      return await paymentRequiredResponse(
+        endpoint,
+        "POST",
+        "Payment required. Send a valid x402 access token in PAYMENT-SIGNATURE."
+      );
+    }
+
+    let verification;
+    try {
+      verification = await verifyAccessToken(accessToken, endpoint, "POST", 1n);
+    } catch (error) {
+      console.error("Nevermined verification failed", error);
+      return await paymentRequiredResponse(
+        endpoint,
+        "POST",
+        config.nevermined.paymentRail === "fiat"
+          ? "Payment verification failed. Confirm the subscriber account completed the Nevermined Stripe checkout and minted a fresh x402 token for this plan."
+          : "Payment verification failed. Confirm the subscriber account has ordered the plan and mint a fresh x402 token for this plan."
+      );
+    }
+
+    if (!verification.isValid) {
+      return await paymentRequiredResponse(
+        endpoint,
+        "POST",
+        verification.invalidReason ||
+          "Payment required. Order the plan and send a fresh x402 token for this endpoint."
+      );
+    }
+
+    let settlement;
+    try {
+      settlement = await settleAccessToken(accessToken, endpoint, "POST", 1n);
+    } catch (error) {
+      console.error("Nevermined settlement failed", error);
+      return await paymentRequiredResponse(
+        endpoint,
+        "POST",
+        config.nevermined.paymentRail === "fiat"
+          ? "Payment settlement failed. Re-check the Nevermined Stripe-backed plan purchase and mint a fresh x402 token before retrying."
+          : "Payment settlement failed. Re-check plan balance and mint a fresh x402 token before retrying."
+      );
+    }
+
+    // Stash the access token on the order for per-step settlement
+    orderStore.stashAccessToken(orderId, accessToken);
+  } else {
+    console.log(`[demo] Skipping payment for order ${orderId}`);
   }
-
-  let verification;
-  try {
-    verification = await verifyAccessToken(accessToken, endpoint, "POST", 1n);
-  } catch (error) {
-    console.error("Nevermined verification failed", error);
-    return await paymentRequiredResponse(
-      endpoint,
-      "POST",
-      config.nevermined.paymentRail === "fiat"
-        ? "Payment verification failed. Confirm the subscriber account completed the Nevermined Stripe checkout and minted a fresh x402 token for this plan."
-        : "Payment verification failed. Confirm the subscriber account has ordered the plan and mint a fresh x402 token for this plan."
-    );
-  }
-
-  if (!verification.isValid) {
-    return await paymentRequiredResponse(
-      endpoint,
-      "POST",
-      verification.invalidReason ||
-        "Payment required. Order the plan and send a fresh x402 token for this endpoint."
-    );
-  }
-
-  let settlement;
-  try {
-    settlement = await settleAccessToken(accessToken, endpoint, "POST", 1n);
-  } catch (error) {
-    console.error("Nevermined settlement failed", error);
-    return await paymentRequiredResponse(
-      endpoint,
-      "POST",
-      config.nevermined.paymentRail === "fiat"
-        ? "Payment settlement failed. Re-check the Nevermined Stripe-backed plan purchase and mint a fresh x402 token before retrying."
-        : "Payment settlement failed. Re-check plan balance and mint a fresh x402 token before retrying."
-    );
-  }
-
-  // Stash the access token on the order for per-step settlement
-  orderStore.stashAccessToken(orderId, accessToken);
 
   // Initialize compute summary with requested GPU hours
   const gpuHours = order.gpuHours || 1;
@@ -375,11 +382,9 @@ async function handleStartOrder(req: Request, orderId: string): Promise<Response
     status: nextOrder.status,
     orchestration: nextOrder.orchestration,
     compute: nextOrder.compute,
-    payment: {
-      success: settlement.success,
-      transaction: settlement.transaction,
-      creditsRedeemed: settlement.creditsRedeemed
-    }
+    payment: isDemo
+      ? { demo: true, message: "Payment skipped in demo mode" }
+      : { success: true }
   });
 }
 

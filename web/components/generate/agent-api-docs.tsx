@@ -2,31 +2,43 @@ import { Braces, FileJson, Link2 } from "lucide-react";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 
 const requestExample = `{
-  "agentName": "capacity-broker",
-  "agentId": "broker-01",
+  "agentName": "research-agent-7b",
+  "agentId": "agent-7b",
   "jobType": "batch",
-  "gpuHours": 2,
+  "gpuHours": 1,
   "repoUrl": "https://github.com/cloudagi/worker",
   "command": ["python", "-m", "agent.expand_compute", "--gpu", "A10G"],
-  "objective": "Unlock another GPU lane to finish the run before the deadline.",
-  "expectedOutput": "Logs, artifacts, and a status page for the expansion order."
+  "objective": "Hit compute ceiling at epoch 3/5. Need 1h GPU to finish LoRA fine-tune.",
+  "expectedOutput": "Adapter weights, training logs, eval metrics — billed per-minute."
 }`;
 
 const responseExample = `{
   "order": {
     "id": "9fb7f8a1-...",
     "status": "awaiting_payment",
-    "gpuHours": 2
+    "customerName": "research-agent-7b",
+    "jobType": "batch",
+    "command": ["python", "-m", "agent.expand_compute", "--gpu", "A10G"],
+    "priceLabel": "$25.00",
+    "gpuHours": 1,
+    "createdAt": "2026-03-06T22:00:00.000Z"
   },
   "payment": {
     "type": "nevermined-x402",
-    "instructions": "Order the plan (120 credits = 2h GPU time) and call start with PAYMENT-SIGNATURE."
+    "paymentRail": "fiat",
+    "agentId": "did:nv:...",
+    "planId": "did:nv:...",
+    "instructions": "Order the plan, generate x402 token, call POST /v1/orders/:id/start"
   },
   "links": {
     "order": "/v1/orders/{id}",
     "start": "/v1/orders/{id}/start",
     "logs": "/v1/orders/{id}/logs",
     "artifacts": "/v1/orders/{id}/artifacts"
+  },
+  "requestedBy": {
+    "agentName": "research-agent-7b",
+    "agentId": "agent-7b"
   }
 }`;
 
