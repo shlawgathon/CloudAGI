@@ -4,6 +4,23 @@ All notable contributions by Arya Teja Rudraraju to the CloudAGI project, in rev
 
 ---
 
+## 2026-03-06
+
+### Backend Deployment — VPS + Cloudflare Tunnel
+
+- Killed stale process on port 3000
+- Installed Caddy reverse proxy (later bypassed by tunnel)
+- Stopped and disabled Apache2 (was occupying port 80)
+- Installed and configured `cloudflared` tunnel named `cloudagi`
+- Routed `api.cloudagi.org` DNS (CNAME) through Cloudflare Tunnel
+- Backend live at `https://api.cloudagi.org/v1/health`
+- Configured `.env` with production values (APP_BASE_URL, Nevermined creds, admin key)
+- Created `.arya/DEPLOYMENT.md` — full deployment runbook with start/stop/restart/troubleshooting
+- Updated `.arya/STATUS.md` with current deployment state
+- Co-authored with: Claude Opus 4.6
+
+---
+
 ## 2026-03-05
 
 ### `4c7f5af` — docs(readme): add CORS_ORIGIN var and production deployment section

@@ -13,28 +13,27 @@ Last updated: 2026-03-06
 - Added production deployment documentation to README (Vercel + Docker instructions)
 - Verified all API endpoints working via Cloudflare Tunnel
 - Tested: health check, agent discovery, order creation, CORS headers
+- Backend deployed and live at `https://api.cloudagi.org`
+- Cloudflare Tunnel configured (persistent tunnel named `cloudagi`)
+- DNS: `api.cloudagi.org` CNAME pointing to Cloudflare Tunnel
+- `.env` configured with Nevermined credentials, admin key, and Modal settings
+- Created deployment runbook (`.arya/DEPLOYMENT.md`) with start/stop/restart commands
+- Stopped Apache, installed Caddy (unused — tunnel bypasses it)
 
 ### In Progress
 
-- Vercel deployment for frontend (cloudagi.org)
-- VPS setup for backend (api.cloudagi.org)
-- Cloudflare DNS configuration (A record for api, CNAME for root)
-
-### Blocked / Waiting
-
-- VPS IP address needed for `api.cloudagi.org` DNS record
-- Nevermined credentials needed for payment flow testing (NVM_API_KEY, NVM_AGENT_ID, NVM_PLAN_ID)
+- Frontend deployment for `cloudagi.org` (Vercel or tunnel)
+- Full payment flow testing with Nevermined
 
 ### Known Issues
 
-- Nevermined payment flow returns "not-configured" until credentials are set
-- Cloudflare Tunnel URL changes on every restart (acceptable for dev, need stable URL for prod)
-- Admin key defaults to empty in dev — needs strong key for production
+- `GET /v1/orders` returns `{"error":"Forbidden"}` — this is expected, requires `x-admin-key` header
+- Backend runs as a background process (`nohup`) — needs restart after reboot
+- Nevermined payment flow not yet tested end-to-end
 
 ### Next Steps
 
-1. Get VPS IP and configure DNS
-2. Deploy frontend to Vercel with production env vars
-3. Deploy backend Docker image to VPS
-4. Configure Nevermined credentials and test full payment flow
-5. End-to-end verification on production URLs
+1. Deploy frontend to Vercel or set up second tunnel for `cloudagi.org`
+2. Test full order creation + payment flow with Nevermined
+3. Set up systemd services for auto-restart on reboot
+4. Tighten `CORS_ORIGIN` from `*` to `https://cloudagi.org` when frontend is deployed

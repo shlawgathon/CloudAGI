@@ -22,16 +22,27 @@ This documents exactly what Arya Teja built on CloudAGI, with file-level detail.
 - **`README.md`** — Added full "Production Deployment" section with Vercel frontend and Docker backend instructions
 - **`README.md`** — Added `.env.production` to Important Files list
 
+### 3. Backend Deployment — VPS + Cloudflare Tunnel (2026-03-06)
+
+- **Infrastructure** — Set up Cloudflare Tunnel (`cloudagi`) for NAT-safe deployment, no open ports
+- **DNS** — Configured `api.cloudagi.org` as CNAME pointing to tunnel
+- **Services** — Stopped Apache2, configured Caddy (backup), deployed Bun server via `nohup`
+- **`.env`** — Configured all production environment variables on the host machine
+- **`.arya/DEPLOYMENT.md`** — Created full deployment runbook: start/stop/restart, log inspection, update workflow, troubleshooting table
+- **`.arya/STATUS.md`** — Updated with live deployment status
+- **`.arya/CHANGELOG.md`** — Logged deployment work
+
 ---
 
 ## Summary Stats
 
-- 2 commits, 10 files touched
-- Focus area: deployment readiness, security (CORS), documentation
+- 3 sessions, 10+ files touched
+- Focus area: deployment, infrastructure, security, documentation
 - Tools used: Claude Opus 4.6 (AI pair programming)
 
 ## Areas of Ownership
 
 - Production deployment pipeline (Dockerfile, .env.production, deployment docs)
+- VPS infrastructure and Cloudflare Tunnel management
 - CORS and security configuration
 - README documentation
