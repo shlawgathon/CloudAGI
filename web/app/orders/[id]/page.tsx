@@ -31,8 +31,8 @@ export default async function OrderPage({
               Track a paid run from start to artifact.
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-7 text-[var(--muted)]">
-              This page reflects the order, the Modal run, and the delivered output surface from the
-              current Bun API.
+              This page reflects the order, the Trinity orchestration run, each Modal agent sandbox,
+              and the delivered output surface from the current Bun API.
             </p>
           </div>
           <div className="flex flex-col gap-3 lg:min-w-[22rem]">

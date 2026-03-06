@@ -1,0 +1,39 @@
+name: cloudagi-fixed-system
+description: Fixed CloudAGI paid orchestration flow
+
+agents:
+  orchestrator:
+    template: github:abilityai/agent-corbin
+    resources:
+      cpu: "2"
+      memory: "4g"
+    folders:
+      expose: true
+      consume: true
+
+  planner:
+    template: github:abilityai/agent-ruby
+    folders:
+      expose: true
+      consume: true
+
+  executor:
+    template: github:abilityai/agent-ruby
+    folders:
+      expose: true
+      consume: true
+
+  reviewer:
+    template: github:abilityai/agent-ruby
+    folders:
+      expose: true
+      consume: true
+
+  packager:
+    template: github:abilityai/agent-ruby
+    folders:
+      expose: true
+      consume: true
+
+permissions:
+  preset: full-mesh

@@ -2,10 +2,48 @@ export type JobType = "inference" | "eval" | "batch" | "custom";
 
 export type OrderStatus =
   | "awaiting_payment"
+  | "orchestrating"
   | "running"
   | "succeeded"
   | "failed"
   | "canceled";
+
+export type AgentRole = "planner" | "executor" | "reviewer" | "packager";
+
+export type AgentExecutionStatus =
+  | "pending"
+  | "requested"
+  | "running"
+  | "succeeded"
+  | "failed";
+
+export interface OrderAgentExecution {
+  role: AgentRole;
+  stepId: string;
+  status: AgentExecutionStatus;
+  gpu: string;
+  command: string[];
+  modalSandboxId?: string;
+  startedAt?: string;
+  completedAt?: string;
+  exitCode?: number | null;
+  artifactNames: string[];
+  stdout?: string;
+  stderr?: string;
+  callbackStatus?: "pending" | "received";
+}
+
+export interface OrderOrchestration {
+  provider: "trinity";
+  systemName: string;
+  orchestratorAgent: string;
+  runId?: string;
+  status: "pending" | "triggered" | "in_progress" | "succeeded" | "failed" | "canceled";
+  startedAt?: string;
+  completedAt?: string;
+  finalizedAt?: string;
+  agents: OrderAgentExecution[];
+}
 
 export interface Order {
   id: string;
@@ -20,13 +58,12 @@ export interface Order {
   status: OrderStatus;
   logs: string;
   artifacts: Artifact[];
-  modalSandboxId?: string;
-  modalReturnCode?: number | null;
   nevermined?: {
     agentId: string;
     planId: string;
     paymentRail: "crypto" | "fiat";
   };
+  orchestration?: OrderOrchestration;
   createdAt: string;
   updatedAt: string;
   startedAt?: string;
@@ -39,6 +76,8 @@ export interface Artifact {
   path: string;
   contentType: string;
   sizeBytes: number;
+  agentRole?: AgentRole;
+  stepId?: string;
 }
 
 export interface CreateOrderResponse {
