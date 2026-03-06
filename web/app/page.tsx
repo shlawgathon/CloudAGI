@@ -8,7 +8,7 @@ import { ShaderAnimation } from "@/components/ui/shader-animation";
 
 const navItems = [
   { href: "/generate", label: "Generate" },
-  { href: "/generate#agent-endpoint", label: "API" },
+  { href: "/generate/api", label: "API" },
   { href: "#status", label: "Status" }
 ];
 
@@ -132,7 +132,7 @@ export default function Page() {
                 description="CloudAGI turns payment into execution."
                 primaryCtaHref="/generate"
                 primaryCtaLabel="Generate order"
-                secondaryCtaHref="/generate#agent-endpoint"
+                secondaryCtaHref="/generate/api"
                 secondaryCtaLabel="Use API"
               />
 
