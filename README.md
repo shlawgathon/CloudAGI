@@ -1,247 +1,272 @@
 # CloudAGI
 
-CloudAGI is organized as two separate apps:
+CloudAGI is a multi-service AI platform on the Nevermined marketplace. It sells GPU compute, neural search, web scraping, AI code review, and smart search — all paid via the x402 protocol.
 
-- `backend/` — Bun API, Nevermined payment gating, Trinity orchestration adapter, Modal execution
-- `web/` — Next.js frontend
+## Architecture
 
-The backend is a direct AI orchestration service. A customer creates an order, pays for access through Nevermined with either a crypto or fiat-priced plan, CloudAGI triggers a fixed Trinity workflow, executes each agent step in Modal sandboxes, and returns logs plus artifacts.
-
-This repo implements the first transaction path. It is intentionally not a marketplace, not a provider network, and not a multi-tenant control plane.
-
-## Stack
-
-- Bun + TypeScript backend in [`backend/`](./backend)
-- Trinity orchestration triggered over HTTP/API
-- Modal JavaScript SDK for per-agent sandbox execution
-- Nevermined Payments SDK for crypto or Stripe-backed fiat plans plus x402 payment gating
-- Next.js 16 + React + Tailwind + TypeScript frontend in [`web/`](./web)
-
-## What Exists
-
-- Marketing / order frontend in [`web/app/page.tsx`](./web/app/page.tsx)
-- Order status frontend in [`web/app/orders/[id]/page.tsx`](./web/app/orders/[id]/page.tsx)
-- Order creation endpoint: `POST /v1/orders`
-- Order lookup endpoint: `GET /v1/orders/:id`
-- Paid execution endpoint: `POST /v1/orders/:id/start`
-- Logs endpoint: `GET /v1/orders/:id/logs`
-- Artifact endpoints:
-  - `GET /v1/orders/:id/artifacts`
-  - `GET /v1/orders/:id/artifacts/:name`
-- Agent discovery document: `GET /.well-known/agent.json`
-- Nevermined registration script: `bun run register:nevermined`
-
-## Repo Layout
-
-```text
+```
 CloudAGI/
-├── backend/      # Bun API app
+├── backend/               # Bun API (TypeScript)
 │   ├── src/
-│   ├── scripts/
-│   ├── workflows/
-│   └── .env
-├── web/          # Next.js frontend app
-└── docs/         # Product / implementation notes
+│   │   ├── index.ts       # HTTP router + all endpoints
+│   │   ├── config.ts      # Env-based configuration
+│   │   ├── services/      # Marketplace service handlers
+│   │   │   ├── registry.ts
+│   │   │   ├── init.ts
+│   │   │   └── handlers/
+│   │   │       ├── gpu-compute.ts   # Modal sandbox execution
+│   │   │       ├── ai-research.ts   # Exa neural search
+│   │   │       ├── web-scraper.ts   # Apify web scraping
+│   │   │       ├── code-review.ts   # Claude code analysis
+│   │   │       └── smart-search.ts  # Multi-source aggregator
+│   │   ├── discovery/     # Nevermined Discovery API client
+│   │   ├── payments/      # x402 verification + settlement
+│   │   ├── jobs/          # Modal GPU job execution
+│   │   ├── orders/        # Order state management
+│   │   ├── orchestration/ # Trinity workflow adapter
+│   │   └── scripts/       # Registration + deployment scripts
+│   ├── .env.example       # Local dev env template
+│   └── .env.production    # Production env template
+├── web/                   # Next.js frontend
+│   ├── app/
+│   └── .env.example
+└── reference/             # Nevermined hackathon examples (gitignored)
 ```
 
-## Run Locally
+## Services
 
-You need two processes: backend and frontend.
+| Service | Route | Price | Requires |
+|---------|-------|-------|----------|
+| GPU Compute | `POST /v1/services/gpu-compute/execute` | 1 USDC | Modal auth |
+| AI Research | `POST /v1/services/ai-research/execute` | 0.10 USDC | `EXA_API_KEY` |
+| Web Scraper | `POST /v1/services/web-scraper/execute` | 0.20 USDC | `APIFY_API_TOKEN` |
+| Code Review | `POST /v1/services/code-review/execute` | 0.50 USDC | `ANTHROPIC_API_KEY` |
+| Smart Search | `POST /v1/services/smart-search/execute` | 0.05 USDC | `EXA_API_KEY` |
 
-Before starting, clear any stale local listeners and old Cloudflare tunnels:
+All service execution endpoints are gated by Nevermined x402 payments when configured.
+
+## API Endpoints
+
+### Public
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/` | Service info |
+| GET | `/v1/health` | Health check |
+| GET | `/.well-known/agent.json` | A2A agent card (all services) |
+| GET | `/v1/services` | Service catalog |
+| GET | `/v1/services/:id` | Service details + pricing |
+
+### Paid (x402)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/v1/services/:id/execute` | Execute a service |
+| POST | `/v1/orders/:id/start` | Start order (legacy flow) |
+
+### Discovery
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/v1/discover/sellers` | Find other Nevermined agents |
+| GET | `/v1/discover/buyers` | Find potential buyers |
+
+### Orders (legacy)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/v1/orders` | Create order |
+| GET | `/v1/orders/:id` | Get order status |
+| GET | `/v1/orders/:id/logs` | Get logs |
+| GET | `/v1/orders/:id/artifacts` | List artifacts |
+| GET | `/v1/orders/:id/artifacts/:name` | Download artifact |
+
+## Quick Start
+
+### 1. Clone and install
+
+```bash
+git clone https://github.com/shlawgathon/CloudAGI.git
+cd CloudAGI
+```
+
+### 2. Backend
 
 ```bash
 cd backend
-bun run dev:clear
-```
-
-### 1. Backend
-
-From `backend/`:
-
-```bash
-cd backend
+cp .env.example .env
 bun install
 bun run dev
 ```
 
-Backend URL:
+Backend runs at http://localhost:3000
 
-- [http://localhost:3001](http://localhost:3001)
-
-Useful backend routes:
-
-- [http://localhost:3001/v1/health](http://localhost:3001/v1/health)
-- [http://localhost:3001/.well-known/agent.json](http://localhost:3001/.well-known/agent.json)
-
-### 2. Frontend
+### 3. Frontend
 
 In a second terminal:
 
 ```bash
 cd web
-bun install
 cp .env.example .env.local
+bun install
 bun run dev
 ```
 
-Frontend URL:
+Frontend runs at http://localhost:3000 (Next.js proxies API calls to backend)
 
-- [http://localhost:3000](http://localhost:3000)
+### 4. Verify
 
-### 3. Cloudflare Tunnel
+```bash
+curl http://localhost:3000/v1/health
+curl http://localhost:3000/v1/services
+curl http://localhost:3000/.well-known/agent.json
+```
 
-If you need a public backend URL for Nevermined:
+## Environment Setup
+
+### Backend (`backend/.env`)
+
+Copy `backend/.env.example` and fill in your values:
 
 ```bash
 cd backend
-bun run dev:tunnel
+cp .env.example .env
 ```
 
-This always tunnels the backend on `3001` and kills any older `cloudflared` process first.
+**Required for basic operation:**
+- `PORT`, `HOST`, `APP_BASE_URL`, `CORS_ORIGIN` — server config
 
-Important:
+**Required for Nevermined payments:**
+- `NVM_API_KEY` — from https://nevermined.app > Settings > API Keys
+- `NVM_BUILDER_ADDRESS` — your wallet address from Nevermined profile
+- `NVM_PAYMENT_RAIL` — `fiat` (Stripe) or `crypto` (USDC)
+- `NVM_AGENT_ID`, `NVM_PLAN_ID` — output of `bun run register:all-services`
 
-- The quick Tunnel URL changes every time you restart it.
-- If you want `/.well-known/agent.json` and Nevermined discovery to point at the current public URL, update `APP_BASE_URL` in [`.env`](./.env) to the new tunnel URL.
-- If your Nevermined agent has already been registered, update the agent metadata after changing `APP_BASE_URL`.
+**Per-service Nevermined IDs** (optional, falls back to default):
+- `NVM_GPU_COMPUTE_AGENT_ID`, `NVM_GPU_COMPUTE_PLAN_ID`
+- `NVM_AI_RESEARCH_AGENT_ID`, `NVM_AI_RESEARCH_PLAN_ID`
+- `NVM_WEB_SCRAPER_AGENT_ID`, `NVM_WEB_SCRAPER_PLAN_ID`
+- `NVM_CODE_REVIEW_AGENT_ID`, `NVM_CODE_REVIEW_PLAN_ID`
+- `NVM_SMART_SEARCH_AGENT_ID`, `NVM_SMART_SEARCH_PLAN_ID`
 
-## Environment Files
+**Sponsor API keys** (each enables its service):
+- `EXA_API_KEY` — from https://exa.ai (enables AI Research + Smart Search)
+- `APIFY_API_TOKEN` — from https://apify.com (enables Web Scraper)
+- `ANTHROPIC_API_KEY` — from Anthropic (enables Code Review)
 
-### Backend env
+**Modal** (GPU compute):
+- Auth via `~/.modal.toml` (run `modal token set` locally)
+- Or set `MODAL_TOKEN_ID` + `MODAL_TOKEN_SECRET` in env
 
-The Bun API reads config from [`backend/.env`](./backend/.env).
+**Trinity** (orchestration, optional for service-only mode):
+- `TRINITY_BASE_URL`, `TRINITY_API_KEY`, `TRINITY_SHARED_SECRET`
 
-Important backend variables:
-
-- `PORT`
-- `HOST`
-- `APP_BASE_URL`
-- `ADMIN_KEY`
-- `CORS_ORIGIN` — allowed origin for CORS (default: `https://cloudagi.org`, use `*` for local dev)
-- `MODAL_APP_NAME`
-- `MODAL_IMAGE`
-- `MODAL_ENVIRONMENT_NAME`
-- `MODAL_GPU`
-- `MODAL_TIMEOUT_SECS`
-- `TRINITY_BASE_URL`
-- `TRINITY_API_KEY`
-- `TRINITY_SYSTEM_NAME`
-- `TRINITY_ORCHESTRATOR_AGENT`
-- `TRINITY_SHARED_SECRET`
-- `NVM_API_KEY`
-- `NVM_ENVIRONMENT`
-- `NVM_PAYMENT_RAIL`
-- `NVM_AGENT_ID`
-- `NVM_PLAN_ID`
-- `NVM_BUILDER_ADDRESS`
-- `NVM_USDC_ADDRESS`
-- `CLOUDAGI_PRICE_AMOUNT`
-- `CLOUDAGI_PAYMENT_CURRENCY`
-- `CLOUDAGI_PRICE_LABEL`
-- `CLOUDAGI_PRICE_UNITS`
-
-### Frontend env
-
-The Next app reads config from [`web/.env.local`](./web/.env.example).
-
-Important frontend variables:
-
-- `BACKEND_URL=http://127.0.0.1:3001`
-- `NEXT_PUBLIC_API_BASE_URL=`
-
-Notes:
-
-- If `NEXT_PUBLIC_API_BASE_URL` is empty, the frontend uses Next rewrites from [`web/next.config.ts`](./web/next.config.ts) and proxies `/api/*` to `BACKEND_URL`.
-- For normal local development, the default `BACKEND_URL=http://127.0.0.1:3001` is correct.
-
-## Runtime Scripts
-
-- `bun run dev:clear`
-  Clears local listeners on `3000`, `3001`, and `3002`, and kills existing `cloudflared` processes.
-- `bun run dev`
-  Starts the Bun backend on `3001`.
-- `cd web && bun run dev`
-  Starts the Next frontend on `3000`.
-- `bun run dev:tunnel`
-  Starts a fresh Cloudflare quick tunnel to the backend on `3001`.
-
-## Modal Auth
-
-CloudAGI uses the local Modal profile if one exists.
-
-On this machine, Modal is already configured through `~/.modal.toml`, so local development does not need `MODAL_TOKEN_ID` or `MODAL_TOKEN_SECRET` in `backend/.env`.
-
-You only need explicit Modal env vars when running on a machine that does not already have a Modal profile configured.
-
-## Nevermined Setup
-
-The paid start endpoint depends on Nevermined.
-
-If these are missing:
-
-- `NVM_API_KEY`
-- `NVM_AGENT_ID`
-- `NVM_PLAN_ID`
-
-then the app still boots, but `POST /v1/orders/:id/start` returns `503`.
-
-To register the CloudAGI plan after filling the Nevermined values:
-
-```bash
-cd backend
-bun run register:nevermined
-```
-
-That script uses:
-
-- the configured payment rail in `NVM_PAYMENT_RAIL`
-- the configured USDC token address in `NVM_USDC_ADDRESS` when using crypto
-- the receiving address in `NVM_BUILDER_ADDRESS`
-- the current CloudAGI offer name, display price, and raw registration units from `backend/.env`
-
-## Payment Flow
-
-1. Customer creates an order in the frontend.
-2. Backend returns the order plus Nevermined plan metadata when configured.
-3. Customer orders the plan using the configured Nevermined payment rail.
-4. Customer generates an x402 access token.
-5. Customer calls `POST /v1/orders/:id/start` with `payment-signature`.
-6. CloudAGI verifies and settles the payment through Nevermined.
-7. CloudAGI triggers the fixed Trinity system for the order.
-8. Trinity requests agent-step execution from CloudAGI.
-9. CloudAGI runs each requested step in a dedicated Modal sandbox.
-10. Logs and artifacts are exposed through the order status page.
-
-## Current Limitations
-
-- Order state is in-memory. Restarting the backend clears orders.
-- Artifacts are written to `data/artifacts/`.
-- The backend is API-only; the UI now lives entirely in [`web/`](./web).
-- A real paid transaction still requires valid Nevermined credentials, `NVM_AGENT_ID`, `NVM_PLAN_ID`, and a reachable public deployment URL.
-- The current plan still needs a real subscriber purchase and a fresh x402 token before Nevermined verification will pass.
-- Failed Nevermined verification now returns `402` with a payment challenge and troubleshooting message instead of a raw `500`.
-
-## Validation Commands
-
-Backend:
-
-```bash
-cd backend
-bun run typecheck
-```
-
-Frontend:
+### Frontend (`web/.env.local`)
 
 ```bash
 cd web
-bun run typecheck
-bun run build
+cp .env.example .env.local
 ```
+
+- `BACKEND_URL=http://127.0.0.1:3000` — backend address for Next.js rewrites
+- `NEXT_PUBLIC_API_BASE_URL=` — leave empty for local dev (uses proxy)
+
+## Nevermined Registration
+
+After setting `NVM_API_KEY` and `NVM_BUILDER_ADDRESS` in `backend/.env`:
+
+```bash
+cd backend
+
+# Register all 5 services at once
+bun run register:all-services
+```
+
+The script outputs agent/plan IDs for each service. Copy them into your `.env`:
+
+```
+NVM_GPU_COMPUTE_AGENT_ID=did:nv:abc...
+NVM_GPU_COMPUTE_PLAN_ID=did:nv:def...
+NVM_AI_RESEARCH_AGENT_ID=did:nv:ghi...
+NVM_AI_RESEARCH_PLAN_ID=did:nv:jkl...
+...
+```
+
+You can also register just the legacy single agent:
+
+```bash
+bun run register:nevermined
+```
+
+## Payment Flow
+
+### Service execution (new)
+
+1. Buyer discovers services via `GET /v1/services` or `GET /.well-known/agent.json`
+2. Buyer orders the service's plan on Nevermined (fiat or crypto)
+3. Buyer mints an x402 access token
+4. Buyer calls `POST /v1/services/:id/execute` with `PAYMENT-SIGNATURE` header
+5. CloudAGI verifies + settles payment, executes the service, returns results
+
+### Order flow (legacy)
+
+1. Customer creates order via `POST /v1/orders`
+2. Customer pays via Nevermined
+3. Customer calls `POST /v1/orders/:id/start` with `PAYMENT-SIGNATURE`
+4. CloudAGI triggers Trinity workflow, runs agent steps in Modal sandboxes
+5. Logs + artifacts available at order endpoints
+
+## Adding a New Service
+
+1. Create `backend/src/services/handlers/my-service.ts`:
+
+```typescript
+import { registerService } from "../registry";
+import type { ServiceResult } from "../registry";
+
+async function handler(body: Record<string, unknown>): Promise<ServiceResult> {
+  // Your service logic here
+  return { success: true, data: { result: "..." } };
+}
+
+registerService({
+  id: "my-service",
+  name: "My Service",
+  description: "What it does",
+  category: "category",
+  priceLabel: "0.10 USDC",
+  priceAmount: "0.10",
+  priceCurrency: "USDC",
+  tags: ["tag1", "tag2"],
+  handler,
+});
+```
+
+2. Add import in `backend/src/services/init.ts`:
+```typescript
+import "./handlers/my-service";
+```
+
+3. Register on Nevermined:
+```bash
+cd backend && bun run register:all-services
+```
+
+4. Copy the output IDs to `.env`
 
 ## Production Deployment
 
-A [`backend/.env.production`](./backend/.env.production) template is included with all required variables for VPS deployment.
+### Backend (Docker on VPS)
+
+```bash
+cd backend
+cp .env.production .env
+# Fill in all <placeholder> values in .env
+docker build -t cloudagi .
+docker run --env-file .env -p 3000:3000 cloudagi
+```
+
+DNS: `api.cloudagi.org` -> VPS IP (Cloudflare proxied, handles SSL)
 
 ### Frontend (Vercel)
 
@@ -250,38 +275,54 @@ cd web
 vercel --prod
 ```
 
-Set these env vars in Vercel:
-
+Vercel env vars:
 - `NEXT_PUBLIC_API_BASE_URL=https://api.cloudagi.org`
 - `BACKEND_URL=https://api.cloudagi.org`
 
-Configure `cloudagi.org` as a custom domain in Vercel, then add a CNAME record in Cloudflare:
+DNS: `cloudagi.org` -> `cname.vercel-dns.com` (Cloudflare proxied)
 
-- `cloudagi.org` → `cname.vercel-dns.com` (proxied)
+### Cloudflare Tunnel (dev)
 
-### Backend (Docker on VPS)
+For a temporary public backend URL:
 
 ```bash
 cd backend
-docker build -t cloudagi .
-docker run --env-file .env.production -p 3000:3000 cloudagi
+bun run dev:tunnel
 ```
 
-Add an A record in Cloudflare for the VPS:
+The tunnel URL changes on restart. Update `APP_BASE_URL` in `.env` when it does.
 
-- `api.cloudagi.org` → VPS IP (proxied)
+## Validation
 
-Cloudflare proxy handles SSL termination — the backend only needs to expose port 3000 over HTTP.
+```bash
+# Backend typecheck
+cd backend && bun run typecheck
 
-## Important Files
+# Frontend typecheck + build
+cd web && bun run typecheck && bun run build
+```
 
-- [`backend/.env`](./backend/.env)
-- [`backend/.env.production`](./backend/.env.production)
-- [`web/.env.example`](./web/.env.example)
-- [`backend/src/index.ts`](./backend/src/index.ts)
-- [`backend/src/jobs/modal.ts`](./backend/src/jobs/modal.ts)
-- [`backend/src/payments/nevermined.ts`](./backend/src/payments/nevermined.ts)
-- [`backend/src/scripts/register-nevermined.ts`](./backend/src/scripts/register-nevermined.ts)
-- [`web/app/page.tsx`](./web/app/page.tsx)
-- [`web/app/orders/[id]/page.tsx`](./web/app/orders/[id]/page.tsx)
-- [`docs/plans/2026-03-06-cloudagi-first-transaction.md`](./docs/plans/2026-03-06-cloudagi-first-transaction.md)
+## Scripts
+
+| Script | Directory | Description |
+|--------|-----------|-------------|
+| `bun run dev` | `backend/` | Start backend dev server (port 3000) |
+| `bun run typecheck` | `backend/` | TypeScript check |
+| `bun run register:all-services` | `backend/` | Register all 5 services on Nevermined |
+| `bun run register:nevermined` | `backend/` | Register single legacy agent |
+| `bun run deploy:trinity` | `backend/` | Deploy Trinity system |
+| `bun run dev:clear` | `backend/` | Kill stale listeners + tunnels |
+| `bun run dev:tunnel` | `backend/` | Start Cloudflare tunnel |
+| `bun run dev` | `web/` | Start frontend dev server |
+| `bun run build` | `web/` | Build frontend for production |
+
+## Current Limitations
+
+- Order state is in-memory (restarting backend clears orders)
+- Artifacts written to `data/artifacts/`
+- Services without their API key return an error (graceful degradation)
+- Real x402 transactions require valid Nevermined credentials + a reachable public URL
+
+## Agents & Skills
+
+See [`agents.md`](./agents.md) for the full guide to AI agent personas and skills. Key skill for Nevermined integration: `.claude/skills/nevermined-payments/SKILL.md`
