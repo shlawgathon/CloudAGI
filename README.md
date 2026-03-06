@@ -6,6 +6,63 @@
 
 CloudAGI is a multi-service AI platform on the Nevermined marketplace. It exposes a branch orchestrator agent on top of the existing leaf agents for GPU compute, neural search, web scraping, AI code review, and smart search, all paid via the x402 protocol.
 
+## Live URLs
+
+| URL | Description |
+|-----|-------------|
+| [cloudagi.org](https://cloudagi.org) | Frontend (Next.js UI) |
+| [api.cloudagi.org](https://api.cloudagi.org) | Backend API |
+| [api.cloudagi.org/v1/services](https://api.cloudagi.org/v1/services) | Service catalog |
+| [api.cloudagi.org/.well-known/agent.json](https://api.cloudagi.org/.well-known/agent.json) | A2A agent card |
+| [api.cloudagi.org/v1/health](https://api.cloudagi.org/v1/health) | Health check |
+
+## Available Services
+
+All services are billed per-call via USDC over x402 on Base Sepolia.
+
+| Service | Endpoint | Price | Provider |
+|---------|----------|-------|----------|
+| Branch Orchestrator | `POST /v1/services/orchestrator/execute` | $25.00 | Trinity + Routing |
+| GPU Compute | `POST /v1/services/gpu-compute/execute` | $1.00 | Modal |
+| Code Review | `POST /v1/services/code-review/execute` | $0.50 | Claude Sonnet 4.6 |
+| Web Scraper | `POST /v1/services/web-scraper/execute` | $0.20 | Apify |
+| AI Research | `POST /v1/services/ai-research/execute` | $0.10 | Exa |
+| Smart Search | `POST /v1/services/smart-search/execute` | $0.05 | Multi-source |
+
+### Quick Start — Call a Service (3 steps)
+
+```bash
+# 1. Install SDK
+npm install @nevermined-io/payments
+
+# 2. Set env vars
+export NVM_API_KEY=sandbox:your-key
+export NVM_ENVIRONMENT=sandbox
+
+# 3. Call any service
+curl -X POST https://api.cloudagi.org/v1/services/smart-search/execute \
+  -H "Content-Type: application/json" \
+  -H "PAYMENT-SIGNATURE: <your-x402-token>" \
+  -d '{ "query": "latest AI agent frameworks" }'
+```
+
+Each call requires a fresh x402 access token. Get one via the Nevermined SDK:
+
+```typescript
+import { Payments } from "@nevermined-io/payments";
+
+const payments = Payments.getInstance({
+  nvmApiKey: process.env.NVM_API_KEY!,
+  environment: "sandbox",
+});
+
+// Order plan (one-time), then get token per call
+await payments.plans.orderPlan(PLAN_ID);
+const { accessToken } = await payments.x402.getX402AccessToken(PLAN_ID, AGENT_ID);
+```
+
+Plan and Agent IDs for each service are listed in the [agent card](https://api.cloudagi.org/.well-known/agent.json).
+
 ## Architecture
 
 ```
@@ -683,6 +740,68 @@ cd web && bun run typecheck && bun run build
 | `bun run dev`                   | `web/`       | Start frontend dev server               |
 | `bun run build`                 | `web/`       | Build frontend for production           |
 | `python3 pay_and_call.py`       | `purchaser/` | Python purchaser agent (CLI)            |
+
+## Buying from Other Agents
+
+To purchase from another agent on the Nevermined marketplace, you need **3 pieces of information**:
+
+| What | Why | Example |
+|------|-----|---------|
+| **Plan ID** | Identifies their pricing plan on Nevermined | `111171385715...605172` |
+| **Agent ID** | Identifies their agent for x402 token generation | `768067154445...358652` |
+| **Endpoint URL** | The URL to call with the payment token | `https://their-service.com/api/chat` |
+
+### Template to ask other builders
+
+> Hey! I want to buy from your agent. Can you share:
+> 1. Your **Plan ID** (Nevermined plan)
+> 2. Your **Agent ID** (Nevermined agent)
+> 3. Your **endpoint URL** (the URL I should POST to)
+> 4. What **headers** does your endpoint expect for the payment token? (`PAYMENT-SIGNATURE`, `Authorization: Bearer`, or `payment-signature`?)
+> 5. What **payload format** does your endpoint expect? (JSON body schema)
+
+### Quick purchase via CLI
+
+```bash
+cd backend && export $(grep -v '^#' .env | xargs)
+
+# Direct purchase + call
+bun run src/scripts/buy-from-marketplace.ts \
+  --plan-id "<PLAN_ID>" \
+  --agent-id "<AGENT_ID>" \
+  --url "<ENDPOINT_URL>" \
+  --message '{"query": "hello"}'
+
+# Or discover + auto-buy from all marketplace sellers
+bun run src/scripts/bulk-buy.ts
+```
+
+### Programmatic purchase (TypeScript)
+
+```typescript
+import { Payments } from "@nevermined-io/payments";
+
+const payments = Payments.getInstance({
+  nvmApiKey: process.env.NVM_API_KEY!,
+  environment: "sandbox" as never,
+});
+
+// 1. Order the plan (get credits)
+await payments.plans.orderPlan(PLAN_ID);
+
+// 2. Get x402 access token
+const { accessToken } = await payments.x402.getX402AccessToken(PLAN_ID, AGENT_ID);
+
+// 3. Call the endpoint
+const res = await fetch(ENDPOINT_URL, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "PAYMENT-SIGNATURE": accessToken, // or Authorization: Bearer
+  },
+  body: JSON.stringify({ query: "hello" }),
+});
+```
 
 ## Current Limitations
 
