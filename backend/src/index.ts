@@ -16,6 +16,14 @@ import {
   settleAccessToken,
   verifyAccessToken
 } from "./payments/nevermined";
+import "./services/init";
+import {
+  getAllServices,
+  getRegisteredService,
+  getServicePublicInfo,
+  serviceRegistry
+} from "./services/registry";
+import { discoverBuyers, discoverSellers } from "./discovery/client";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": config.corsOrigin,
@@ -376,18 +384,26 @@ async function router(req: Request): Promise<Response> {
 
   if (path === "/.well-known/agent.json" && req.method === "GET") {
     const baseUrl = getPublicBaseUrl(req);
+    const services = getAllServices().map((s) => ({
+      ...getServicePublicInfo(s),
+      executeUrl: `${baseUrl}/v1/services/${s.id}/execute`,
+    }));
 
     return json({
       name: config.offerName,
       version: config.version,
       description:
-        "CloudAGI is a paid AI orchestration service that verifies Nevermined payments, runs a fixed Trinity workflow, and executes each agent step in Modal sandboxes.",
+        "CloudAGI is a multi-service AI platform offering GPU compute, neural search, web scraping, code review, and smart search. All services are paid via Nevermined x402 protocol.",
+      url: baseUrl,
+      services,
       endpoints: {
+        catalog: `${baseUrl}/v1/services`,
         createOrder: `${baseUrl}/v1/orders`,
         startOrder: `${baseUrl}/v1/orders/{orderId}/start`,
         getOrder: `${baseUrl}/v1/orders/{orderId}`,
         getLogs: `${baseUrl}/v1/orders/{orderId}/logs`,
-        getArtifacts: `${baseUrl}/v1/orders/{orderId}/artifacts`
+        getArtifacts: `${baseUrl}/v1/orders/{orderId}/artifacts`,
+        discover: `${baseUrl}/v1/discover/sellers`
       },
       payment: isNeverminedConfigured()
         ? {
@@ -396,7 +412,12 @@ async function router(req: Request): Promise<Response> {
           }
         : {
             type: "not-configured"
-          }
+          },
+      capabilities: {
+        a2a: true,
+        x402: true,
+        services: services.length
+      }
     });
   }
 
@@ -442,6 +463,85 @@ async function router(req: Request): Promise<Response> {
   if (artifactDownloadMatch && req.method === "GET") {
     return handleDownloadArtifact(artifactDownloadMatch[1], artifactDownloadMatch[2]);
   }
+
+  // --- Service catalog routes ---
+
+  if (path === "/v1/services" && req.method === "GET") {
+    return json({
+      services: getAllServices().map(getServicePublicInfo),
+      total: serviceRegistry.size,
+    });
+  }
+
+  const serviceInfoMatch = path.match(/^\/v1\/services\/([^/]+)$/);
+  if (serviceInfoMatch && req.method === "GET") {
+    const svc = getRegisteredService(serviceInfoMatch[1]);
+    if (!svc) return json({ error: "Service not found" }, { status: 404 });
+    return json({
+      ...getServicePublicInfo(svc),
+      agentId: svc.agentId || undefined,
+      planId: svc.planId || undefined,
+    });
+  }
+
+  const serviceExecMatch = path.match(/^\/v1\/services\/([^/]+)\/execute$/);
+  if (serviceExecMatch && req.method === "POST") {
+    const serviceId = serviceExecMatch[1];
+    const svc = getRegisteredService(serviceId);
+    if (!svc) return json({ error: "Service not found" }, { status: 404 });
+
+    // x402 payment gate (if Nevermined is configured and service has a plan)
+    if (isNeverminedConfigured() && svc.planId) {
+      const accessToken = getAccessToken(req);
+      const endpoint = `/v1/services/${serviceId}/execute`;
+
+      if (!accessToken) {
+        return await paymentRequiredResponse(
+          endpoint,
+          "POST",
+          `Payment required for ${svc.name}. Send a valid x402 access token in PAYMENT-SIGNATURE.`
+        );
+      }
+
+      try {
+        const verification = await verifyAccessToken(accessToken, endpoint, "POST", 1n);
+        if (!verification.isValid) {
+          return await paymentRequiredResponse(
+            endpoint,
+            "POST",
+            verification.invalidReason || "Invalid payment token."
+          );
+        }
+        await settleAccessToken(accessToken, endpoint, "POST", 1n);
+      } catch {
+        return await paymentRequiredResponse(
+          endpoint,
+          "POST",
+          "Payment verification failed."
+        );
+      }
+    }
+
+    const body = await parseJson<Record<string, unknown>>(req);
+    const result = await svc.handler(body);
+    return json(result, { status: result.success ? 200 : 422 });
+  }
+
+  // --- Discovery routes ---
+
+  if (path === "/v1/discover/sellers" && req.method === "GET") {
+    const url = new URL(req.url);
+    const category = url.searchParams.get("category") || undefined;
+    const sellers = await discoverSellers(category);
+    return json({ sellers, total: sellers.length });
+  }
+
+  if (path === "/v1/discover/buyers" && req.method === "GET") {
+    const buyers = await discoverBuyers();
+    return json({ buyers, total: buyers.length });
+  }
+
+  // --- Internal Trinity routes ---
 
   if (path === "/internal/trinity/execute-step" && req.method === "POST") {
     return handleInternalExecuteStep(req);

@@ -54,6 +54,15 @@ export const config = {
     builderAddress: process.env.NVM_BUILDER_ADDRESS || "",
     usdcAddress:
       process.env.NVM_USDC_ADDRESS || "0x036CbD53842c5426634e7929541eC2318f3dCF7e"
+  },
+  exa: {
+    apiKey: process.env.EXA_API_KEY || ""
+  },
+  apify: {
+    apiToken: process.env.APIFY_API_TOKEN || ""
+  },
+  anthropic: {
+    apiKey: process.env.ANTHROPIC_API_KEY || ""
   }
 } as const;
 

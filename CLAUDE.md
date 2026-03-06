@@ -24,11 +24,12 @@ See `agents.md` at project root for the full cross-tool usage guide.
 ## Stack
 
 - **Runtime:** Bun (TypeScript, ESM)
-- **Backend:** `src/index.ts` - Hono/Bun HTTP server on port 3001
+- **Backend:** `backend/src/index.ts` - Bun HTTP server on port 3000
 - **Frontend:** `web/` - Next.js + React + Tailwind
-- **GPU:** Modal serverless (`src/jobs/modal.ts`) - JS SDK `modal` ^0.7.2
-- **Payments:** Nevermined (`src/payments/nevermined.ts`)
-- **Orders:** `src/orders/store.ts`, `src/orders/types.ts`
+- **GPU:** Modal serverless (`backend/src/jobs/modal.ts`) - JS SDK `modal` ^0.7.2
+- **Payments:** Nevermined (`backend/src/payments/nevermined.ts`)
+- **Orders:** `backend/src/orders/store.ts`, `backend/src/orders/types.ts`
+- **Services:** `backend/src/services/` - Multi-service marketplace architecture
 
 ## Modal Configuration
 
@@ -44,23 +45,84 @@ Skill reference: `.claude/skills/modal-serverless-gpu/`
 ## Key Source Files
 
 ```
-src/index.ts              # API entrypoint (Bun server)
-src/config.ts             # Shared configuration
-src/jobs/modal.ts         # Modal GPU job definitions
-src/jobs/runner.ts        # Job execution orchestrator
-src/payments/nevermined.ts # Nevermined payment integration
-src/orders/store.ts       # Order persistence
-src/orders/types.ts       # Order type definitions
-src/scripts/              # Utility scripts
-web/                      # Next.js frontend
+backend/src/index.ts                          # API entrypoint (Bun server)
+backend/src/config.ts                         # Shared configuration
+backend/src/jobs/modal.ts                     # Modal GPU job definitions
+backend/src/jobs/runner.ts                    # Job execution orchestrator
+backend/src/payments/nevermined.ts            # Nevermined payment integration
+backend/src/orders/store.ts                   # Order persistence
+backend/src/orders/types.ts                   # Order type definitions
+backend/src/services/registry.ts              # Multi-service registry
+backend/src/services/init.ts                  # Service loader (imports all handlers)
+backend/src/services/handlers/gpu-compute.ts  # GPU compute service (Modal)
+backend/src/services/handlers/ai-research.ts  # Neural search service (Exa)
+backend/src/services/handlers/web-scraper.ts  # Web scraping service (Apify)
+backend/src/services/handlers/code-review.ts  # AI code review service (Claude)
+backend/src/services/handlers/smart-search.ts # Multi-source search aggregator
+backend/src/discovery/client.ts               # Nevermined Discovery API client
+backend/src/scripts/register-all-services.ts  # Batch Nevermined registration
+backend/src/scripts/                          # Utility scripts
+web/                                          # Next.js frontend
 ```
+
+## Nevermined Setup
+
+### Credentials
+
+1. Go to https://nevermined.app, sign in
+2. Settings > API Keys > Generate Sandbox API key -> `NVM_API_KEY`
+3. Profile > Wallet Address -> `NVM_BUILDER_ADDRESS`
+4. Set `NVM_PAYMENT_RAIL=fiat` for Stripe or `crypto` for USDC
+
+### Register Services
+
+```bash
+cd backend && bun run register:all-services   # Registers all 5 services
+```
+
+Copy the output agent/plan IDs into `.env`.
+
+### Sponsor API Keys
+
+- `EXA_API_KEY` - From https://exa.ai (neural search)
+- `APIFY_API_TOKEN` - From https://apify.com (web scraping)
+- `ANTHROPIC_API_KEY` - For code review service
+
+### Service Architecture
+
+Services are defined in `backend/src/services/handlers/`. Each handler calls `registerService()` on import. The `backend/src/services/init.ts` file imports all handlers.
+
+| Service | Endpoint | Price |
+|---------|----------|-------|
+| GPU Compute | `POST /v1/services/gpu-compute/execute` | 1 USDC |
+| AI Research | `POST /v1/services/ai-research/execute` | 0.10 USDC |
+| Web Scraper | `POST /v1/services/web-scraper/execute` | 0.20 USDC |
+| Code Review | `POST /v1/services/code-review/execute` | 0.50 USDC |
+| Smart Search | `POST /v1/services/smart-search/execute` | 0.05 USDC |
+
+### Discovery API
+
+- `GET /v1/discover/sellers` - Find other Nevermined agents
+- `GET /v1/discover/buyers` - Find potential customers
+- `GET /.well-known/agent.json` - A2A agent card (lists all services)
+
+### Adding a New Service
+
+1. Create `backend/src/services/handlers/my-service.ts`
+2. Call `registerService({ id, name, description, category, priceLabel, priceAmount, priceCurrency, tags, handler })`
+3. Add import in `backend/src/services/init.ts`
+4. Run `cd backend && bun run register:all-services`
+
+Skill reference: `.claude/skills/nevermined-payments/SKILL.md`
+Hackathon examples: `reference/nevermined-hackathons/`
 
 ## Validation Commands
 
 ```bash
-bun run typecheck          # TypeScript check (backend)
-bun run dev                # Start dev server (port 3001)
-cd web && bun run build    # Build Next.js frontend
+cd backend && bun run typecheck    # TypeScript check (backend)
+cd backend && bun run dev          # Start dev server (port 3000)
+cd backend && bun run register:all-services  # Register on Nevermined
+cd web && bun run build            # Build Next.js frontend
 ```
 
 ## Team Conventions
