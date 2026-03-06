@@ -73,8 +73,12 @@ function getPublicBaseUrl(req: Request): string {
   return url.origin;
 }
 
-function paymentRequiredResponse(endpoint: string, method: string, message: string): Response {
-  const paymentRequired = buildPaymentRequirement(endpoint, method);
+async function paymentRequiredResponse(
+  endpoint: string,
+  method: string,
+  message: string
+): Promise<Response> {
+  const paymentRequired = await buildPaymentRequirement(endpoint, method);
 
   return json(
     {
@@ -99,7 +103,7 @@ async function handleCreateOrder(req: Request): Promise<Response> {
 
   const order = orderStore.create(
     body as CreateOrderInput,
-    config.priceUsdc,
+    config.offerPriceLabel,
     isNeverminedConfigured() ? getPlanMetadata() : undefined
   );
 
@@ -111,7 +115,9 @@ async function handleCreateOrder(req: Request): Promise<Response> {
             type: "nevermined-x402",
             ...getPlanMetadata(),
             instructions:
-              "Order the plan in Nevermined with USDC, generate an x402 access token, then call POST /v1/orders/:id/start with PAYMENT-SIGNATURE."
+              config.nevermined.paymentRail === "fiat"
+                ? "Order the plan in Nevermined with Stripe-backed fiat checkout, generate an x402 access token, then call POST /v1/orders/:id/start with PAYMENT-SIGNATURE."
+                : "Order the plan in Nevermined with crypto, generate an x402 access token, then call POST /v1/orders/:id/start with PAYMENT-SIGNATURE."
           }
         : {
             type: "not-configured",
@@ -154,7 +160,7 @@ async function handleStartOrder(req: Request, orderId: string): Promise<Response
   const endpoint = `/v1/orders/${orderId}/start`;
 
   if (!accessToken) {
-    return paymentRequiredResponse(
+    return await paymentRequiredResponse(
       endpoint,
       "POST",
       "Payment required. Send a valid x402 access token in PAYMENT-SIGNATURE."
@@ -166,15 +172,17 @@ async function handleStartOrder(req: Request, orderId: string): Promise<Response
     verification = await verifyAccessToken(accessToken, endpoint, "POST", 1n);
   } catch (error) {
     console.error("Nevermined verification failed", error);
-    return paymentRequiredResponse(
+    return await paymentRequiredResponse(
       endpoint,
       "POST",
-      "Payment verification failed. Confirm the subscriber account has ordered the plan and mint a fresh x402 token for this plan."
+      config.nevermined.paymentRail === "fiat"
+        ? "Payment verification failed. Confirm the subscriber account completed the Nevermined Stripe checkout and minted a fresh x402 token for this plan."
+        : "Payment verification failed. Confirm the subscriber account has ordered the plan and mint a fresh x402 token for this plan."
     );
   }
 
   if (!verification.isValid) {
-    return paymentRequiredResponse(
+    return await paymentRequiredResponse(
       endpoint,
       "POST",
       verification.invalidReason ||
@@ -187,10 +195,12 @@ async function handleStartOrder(req: Request, orderId: string): Promise<Response
     settlement = await settleAccessToken(accessToken, endpoint, "POST", 1n);
   } catch (error) {
     console.error("Nevermined settlement failed", error);
-    return paymentRequiredResponse(
+    return await paymentRequiredResponse(
       endpoint,
       "POST",
-      "Payment settlement failed. Re-check plan balance and mint a fresh x402 token before retrying."
+      config.nevermined.paymentRail === "fiat"
+        ? "Payment settlement failed. Re-check the Nevermined Stripe-backed plan purchase and mint a fresh x402 token before retrying."
+        : "Payment settlement failed. Re-check plan balance and mint a fresh x402 token before retrying."
     );
   }
 

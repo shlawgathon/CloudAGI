@@ -16,7 +16,7 @@ export interface Order {
   command: string[];
   inputNotes: string;
   expectedOutput: string;
-  priceUsdc: string;
+  priceLabel: string;
   status: OrderStatus;
   logs: string;
   artifacts: Artifact[];
@@ -25,6 +25,7 @@ export interface Order {
   nevermined?: {
     agentId: string;
     planId: string;
+    paymentRail: "crypto" | "fiat";
   };
   createdAt: string;
   updatedAt: string;
@@ -48,7 +49,8 @@ export interface CreateOrderResponse {
         agentId: string;
         planId: string;
         offerName: string;
-        priceUsdc: string;
+        priceLabel: string;
+        paymentRail: "crypto" | "fiat";
         instructions: string;
       }
     | {

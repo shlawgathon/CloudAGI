@@ -26,7 +26,7 @@ export interface OrderArtifact {
 
 export interface OrderRecord extends CreateOrderInput {
   id: string;
-  priceUsdc: string;
+  priceLabel: string;
   status: OrderStatus;
   createdAt: string;
   updatedAt: string;
@@ -40,5 +40,6 @@ export interface OrderRecord extends CreateOrderInput {
   nevermined?: {
     agentId: string;
     planId: string;
+    paymentRail: "crypto" | "fiat";
   };
 }

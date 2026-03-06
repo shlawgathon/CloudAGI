@@ -57,7 +57,7 @@ export function OrderStatus({
 
         <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <Detail label="Order ID" value={<span className="break-all font-mono text-xs">{order.id}</span>} />
-          <Detail label="Price" value={`${order.priceUsdc} USDC`} />
+          <Detail label="Price" value={order.priceLabel} />
           <Detail label="Job Type" value={order.jobType} />
           <Detail
             label="Created"
@@ -101,6 +101,10 @@ export function OrderStatus({
               CloudAGI uses Nevermined to gate the paid start endpoint. If your backend is
               configured, the plan and agent IDs are attached to the order.
             </div>
+            <Detail
+              label="Rail"
+              value={order.nevermined?.paymentRail ? order.nevermined.paymentRail : "Not configured"}
+            />
             <Detail label="Agent ID" value={order.nevermined?.agentId || "Not configured"} />
             <Detail label="Plan ID" value={order.nevermined?.planId || "Not configured"} />
           </div>

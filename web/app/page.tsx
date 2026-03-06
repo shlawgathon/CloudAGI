@@ -1,11 +1,12 @@
 import { OrderForm } from "@/components/order-form";
 import { StatusSearch } from "@/components/status-search";
 
-const promise = "Pay in USDC through Nevermined, send the workload, get a completed GPU run plus logs and outputs.";
+const promise =
+  "Pay through Nevermined, send the workload, get a completed GPU run plus logs and outputs.";
 
 const offer = [
   "CloudAGI Fast Run",
-  "25 USDC",
+  "Fixed Nevermined plan",
   "One GPU job credit",
   "Up to 30 minutes runtime",
   "Logs + output artifact"
@@ -14,7 +15,7 @@ const offer = [
 const flow = [
   "Create an order with the command, repo, and expected output.",
   "Get the Nevermined plan metadata CloudAGI exposes for the paid run.",
-  "Order the plan in USDC and generate an x402 token.",
+  "Order the plan through Nevermined and generate an x402 token.",
   "Call the paid start endpoint and let CloudAGI run the job on Modal."
 ];
 

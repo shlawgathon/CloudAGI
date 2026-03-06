@@ -4,12 +4,16 @@ import type { CreateOrderInput, OrderArtifact, OrderRecord } from "./types";
 class OrderStore {
   private orders = new Map<string, OrderRecord>();
 
-  create(input: CreateOrderInput, priceUsdc: string, nevermined?: { agentId: string; planId: string }): OrderRecord {
+  create(
+    input: CreateOrderInput,
+    priceLabel: string,
+    nevermined?: { agentId: string; planId: string; paymentRail: "crypto" | "fiat" }
+  ): OrderRecord {
     const now = new Date().toISOString();
     const order: OrderRecord = {
       ...input,
       id: randomUUID(),
-      priceUsdc,
+      priceLabel,
       status: "awaiting_payment",
       createdAt: now,
       updatedAt: now,

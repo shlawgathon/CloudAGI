@@ -1,6 +1,6 @@
 # CloudAGI
 
-CloudAGI is a direct AI compute service. A customer creates an order, pays for access through Nevermined with a USDC-priced plan, CloudAGI runs the job on Modal, and the customer gets logs plus an artifact.
+CloudAGI is a direct AI compute service. A customer creates an order, pays for access through Nevermined with either a crypto or fiat-priced plan, CloudAGI runs the job on Modal, and the customer gets logs plus an artifact.
 
 This repo implements the first transaction path. It is intentionally not a marketplace, not a provider network, and not a multi-tenant control plane.
 
@@ -8,7 +8,7 @@ This repo implements the first transaction path. It is intentionally not a marke
 
 - Bun + TypeScript backend
 - Modal JavaScript SDK for execution
-- Nevermined Payments SDK for USDC-priced plans and x402 payment gating
+- Nevermined Payments SDK for crypto or Stripe-backed fiat plans plus x402 payment gating
 - Next.js 16 + React + Tailwind + TypeScript frontend in [`web/`](./web)
 
 ## What Exists
@@ -115,10 +115,15 @@ Important backend variables:
 - `MODAL_TIMEOUT_SECS`
 - `NVM_API_KEY`
 - `NVM_ENVIRONMENT`
+- `NVM_PAYMENT_RAIL`
 - `NVM_AGENT_ID`
 - `NVM_PLAN_ID`
 - `NVM_BUILDER_ADDRESS`
 - `NVM_USDC_ADDRESS`
+- `CLOUDAGI_PRICE_AMOUNT`
+- `CLOUDAGI_PAYMENT_CURRENCY`
+- `CLOUDAGI_PRICE_LABEL`
+- `CLOUDAGI_PRICE_UNITS`
 
 ### Frontend env
 
@@ -173,15 +178,16 @@ bun run register:nevermined
 
 That script uses:
 
-- the configured USDC token address in `NVM_USDC_ADDRESS`
+- the configured payment rail in `NVM_PAYMENT_RAIL`
+- the configured USDC token address in `NVM_USDC_ADDRESS` when using crypto
 - the receiving address in `NVM_BUILDER_ADDRESS`
-- the current CloudAGI offer name and price from `.env`
+- the current CloudAGI offer name, display price, and raw registration units from `.env`
 
 ## Payment Flow
 
 1. Customer creates an order in the frontend.
 2. Backend returns the order plus Nevermined plan metadata when configured.
-3. Customer orders the plan using USDC.
+3. Customer orders the plan using the configured Nevermined payment rail.
 4. Customer generates an x402 access token.
 5. Customer calls `POST /v1/orders/:id/start` with `payment-signature`.
 6. CloudAGI verifies and settles the payment through Nevermined.
@@ -194,7 +200,7 @@ That script uses:
 - Artifacts are written to `data/artifacts/`.
 - The backend is API-only; the UI now lives entirely in [`web/`](./web).
 - A real paid transaction still requires valid Nevermined credentials, `NVM_AGENT_ID`, `NVM_PLAN_ID`, and a reachable public deployment URL.
-- The current USDC plan is not yet subscribed for the builder wallet, so Nevermined verification returns a payment failure until a real subscriber orders the plan and generates a fresh x402 token.
+- The current plan still needs a real subscriber purchase and a fresh x402 token before Nevermined verification will pass.
 - Failed Nevermined verification now returns `402` with a payment challenge and troubleshooting message instead of a raw `500`.
 
 ## Validation Commands

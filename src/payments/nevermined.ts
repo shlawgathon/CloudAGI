@@ -1,4 +1,4 @@
-import { buildPaymentRequired, Payments } from "@nevermined-io/payments";
+import { buildPaymentRequired, Payments, resolveScheme } from "@nevermined-io/payments";
 import { config } from "../config";
 
 type VerificationResult = {
@@ -32,19 +32,32 @@ export function getPlanMetadata() {
     agentId: config.nevermined.agentId,
     planId: config.nevermined.planId,
     offerName: config.offerName,
-    priceUsdc: config.priceUsdc
+    priceLabel: config.offerPriceLabel,
+    paymentRail: config.nevermined.paymentRail
   };
 }
 
-export function buildPaymentRequirement(endpoint: string, method: string) {
+async function getPlanScheme() {
+  return resolveScheme(
+    getPayments(),
+    config.nevermined.planId,
+    config.nevermined.paymentRail === "fiat" ? "nvm:card-delegation" : "nvm:erc4337"
+  );
+}
+
+export async function buildPaymentRequirement(endpoint: string, method: string) {
   if (!isNeverminedConfigured()) {
     throw new Error("Nevermined is not configured");
   }
 
+  const scheme = await getPlanScheme();
+
   return buildPaymentRequired(config.nevermined.planId, {
     endpoint,
     agentId: config.nevermined.agentId,
-    httpVerb: method
+    httpVerb: method,
+    environment: config.nevermined.environment as never,
+    scheme
   });
 }
 
@@ -54,7 +67,7 @@ export async function verifyAccessToken(
   method: string,
   maxAmount: bigint
 ): Promise<VerificationResult> {
-  const paymentRequired = buildPaymentRequirement(endpoint, method);
+  const paymentRequired = await buildPaymentRequirement(endpoint, method);
 
   const verification = await getPayments().facilitator.verifyPermissions({
     paymentRequired,
@@ -71,7 +84,7 @@ export async function settleAccessToken(
   method: string,
   maxAmount: bigint
 ) {
-  const paymentRequired = buildPaymentRequirement(endpoint, method);
+  const paymentRequired = await buildPaymentRequirement(endpoint, method);
 
   return getPayments().facilitator.settlePermissions({
     paymentRequired,

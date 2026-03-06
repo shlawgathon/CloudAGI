@@ -15,7 +15,7 @@ const sans = Inter({
 export const metadata: Metadata = {
   title: "CloudAGI",
   description:
-    "CloudAGI runs paid AI GPU jobs on Modal with Nevermined-gated USDC access and returns logs plus artifacts."
+    "CloudAGI runs paid AI GPU jobs on Modal with Nevermined-gated access and returns logs plus artifacts."
 };
 
 export default function RootLayout({

@@ -39,7 +39,7 @@ export function OrderForm() {
           </h2>
         </div>
         <div className="rounded-full border border-[var(--border)] bg-white/5 px-4 py-2 text-sm text-[var(--muted)]">
-          One offer · 25 USDC · One job credit
+          One offer · Fixed price · One job credit
         </div>
       </div>
 
@@ -199,7 +199,7 @@ export function OrderForm() {
                 </div>
                 <div>
                   <span className="text-white">Price</span>
-                  <div className="mt-1">{result.order.priceUsdc} USDC</div>
+                  <div className="mt-1">{result.order.priceLabel}</div>
                 </div>
               </div>
               <a
@@ -219,6 +219,10 @@ export function OrderForm() {
               <div>{result.payment.instructions}</div>
               {"agentId" in result.payment ? (
                 <>
+                  <div>
+                    <span className="text-white">Rail</span>
+                    <div className="mt-1 capitalize text-white/85">{result.payment.paymentRail}</div>
+                  </div>
                   <div>
                     <span className="text-white">Agent ID</span>
                     <div className="mt-1 break-all font-mono text-xs text-white/85">

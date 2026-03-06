@@ -7,6 +7,16 @@ const toInt = (value: string | undefined, fallback: number): number => {
   return Number.isNaN(parsed) ? fallback : parsed;
 };
 
+const offerPriceAmount = process.env.CLOUDAGI_PRICE_AMOUNT || process.env.CLOUDAGI_PRICE_USDC || "25";
+const paymentRail = process.env.NVM_PAYMENT_RAIL === "fiat" ? "fiat" : "crypto";
+const paymentCurrency = process.env.CLOUDAGI_PAYMENT_CURRENCY || (paymentRail === "fiat" ? "USD" : "USDC");
+const offerPriceLabel = process.env.CLOUDAGI_PRICE_LABEL || `${offerPriceAmount} ${paymentCurrency}`;
+const defaultPriceUnits =
+  paymentRail === "fiat"
+    ? BigInt(Math.round(Number(offerPriceAmount)).toString())
+    : BigInt(Math.round(Number(offerPriceAmount) * 1_000_000).toString());
+const offerPriceUnits = BigInt(process.env.CLOUDAGI_PRICE_UNITS || defaultPriceUnits.toString());
+
 export const config = {
   appName: "CloudAGI",
   version: "0.1.0",
@@ -16,7 +26,10 @@ export const config = {
   adminKey: process.env.ADMIN_KEY || "",
   corsOrigin: process.env.CORS_ORIGIN || "https://cloudagi.org",
   offerName: process.env.CLOUDAGI_OFFER_NAME || "CloudAGI Fast Run",
-  priceUsdc: process.env.CLOUDAGI_PRICE_USDC || "25",
+  offerPriceAmount,
+  offerPriceLabel,
+  offerPriceUnits,
+  paymentCurrency,
   offerCredits: BigInt(process.env.CLOUDAGI_PLAN_CREDITS || "1"),
   modal: {
     appName: process.env.MODAL_APP_NAME || "cloudagi",
@@ -28,6 +41,7 @@ export const config = {
   nevermined: {
     apiKey: process.env.NVM_API_KEY || "",
     environment: process.env.NVM_ENVIRONMENT || "sandbox",
+    paymentRail,
     agentId: process.env.NVM_AGENT_ID || "",
     planId: process.env.NVM_PLAN_ID || "",
     builderAddress: process.env.NVM_BUILDER_ADDRESS || "",

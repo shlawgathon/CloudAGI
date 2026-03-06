@@ -23,13 +23,24 @@ async function main() {
     environment: config.nevermined.environment as never
   });
 
-  const priceUnits = BigInt(Math.round(Number(config.priceUsdc) * 1_000_000));
+  const priceConfig =
+    config.nevermined.paymentRail === "fiat"
+      ? payments.plans.getFiatPriceConfig(
+          config.offerPriceUnits,
+          asAddress(config.nevermined.builderAddress)
+        )
+      : payments.plans.getERC20PriceConfig(
+          config.offerPriceUnits,
+          asAddress(config.nevermined.usdcAddress),
+          asAddress(config.nevermined.builderAddress)
+        );
+
   const { agentId, planId } = await payments.agents.registerAgentAndPlan(
     {
       name: config.offerName,
       description:
-        "CloudAGI runs GPU jobs on Modal and returns logs plus artifacts for a fixed USDC price.",
-      tags: ["cloudagi", "gpu", "modal", "compute", "usdc"],
+        `CloudAGI runs GPU jobs on Modal and returns logs plus artifacts for a fixed ${config.offerPriceLabel} price.`,
+      tags: ["cloudagi", "gpu", "modal", "compute", config.nevermined.paymentRail],
       dateCreated: new Date()
     },
     {
@@ -43,11 +54,7 @@ async function main() {
       description: "Single paid GPU job execution credit.",
       dateCreated: new Date()
     },
-    payments.plans.getERC20PriceConfig(
-      priceUnits,
-      asAddress(config.nevermined.usdcAddress),
-      asAddress(config.nevermined.builderAddress)
-    ),
+    priceConfig,
     payments.plans.getFixedCreditsConfig(config.offerCredits, 1n)
   );
 
