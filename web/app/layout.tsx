@@ -1,21 +1,22 @@
 import type { Metadata } from "next";
-import { Fraunces, Inter } from "next/font/google";
+import { Sora, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 
-const display = Fraunces({
+const display = Sora({
   subsets: ["latin"],
+  weight: ["600", "700", "800"],
   variable: "--font-display"
 });
 
-const sans = Inter({
+const sans = Space_Grotesk({
   subsets: ["latin"],
   variable: "--font-sans"
 });
 
 export const metadata: Metadata = {
-  title: "CloudAGI",
+  title: "CloudAGI | Agent-Native Compute Commerce",
   description:
-    "CloudAGI verifies Nevermined payments, runs a fixed Trinity workflow, and executes each agent step in Modal sandboxes."
+    "CloudAGI gives AI agents a path to buy more compute, verify payment through Nevermined, orchestrate through Trinity, and execute on Modal."
 };
 
 export default function RootLayout({

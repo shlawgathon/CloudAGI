@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createOrder } from "@/lib/api";
 import type { CreateOrderResponse } from "@/lib/types";
+import { GlowingEffect } from "@/components/ui/glowing-effect";
 
 const jobTypes = [
   { value: "inference", label: "Inference" },
@@ -21,30 +22,60 @@ function splitCommand(value: string): string[] {
   );
 }
 
-export function OrderForm() {
+export function OrderForm({
+  reviewHref = "/#loop",
+  compact = false
+}: {
+  reviewHref?: string;
+  compact?: boolean;
+}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<CreateOrderResponse | null>(null);
 
   return (
-    <div className="rounded-[2rem] border border-white/10 bg-[var(--panel)] p-6 shadow-[var(--shadow)] backdrop-blur">
-      <div className="mb-8 flex items-end justify-between gap-4">
+    <div className="relative overflow-hidden rounded-[1.7rem] border border-white/14 bg-[linear-gradient(180deg,rgba(8,15,27,0.96),rgba(4,8,16,0.98))] p-5 shadow-[var(--shadow)] backdrop-blur md:p-6">
+      <GlowingEffect
+        blur={2}
+        spread={46}
+        glow
+        disabled={false}
+        proximity={90}
+        inactiveZone={0.01}
+        borderWidth={4}
+      />
+      <div className="relative z-10">
+        <div
+          className={`mb-6 ${compact ? "flex flex-col gap-4" : "flex items-end justify-between gap-4"}`}
+        >
         <div>
-          <p className="mb-2 text-xs uppercase tracking-[0.35em] text-[var(--accent-2)]">
-            Create Paid Order
+          <p className="mb-2 text-xs uppercase tracking-[0.35em] text-[var(--accent-soft)]">
+            Create Expansion Order
           </p>
-          <h2 className="font-[var(--font-display)] text-3xl text-white">
-            Start with the job, not the infra.
+          <h2 className="font-[var(--font-display)] text-2xl text-white md:text-[2rem]">
+            Give the agent another lane to run.
           </h2>
+          {compact ? (
+            <p className="mt-2 max-w-xl text-sm leading-6 text-[var(--muted)]">
+              Define the workload, attach the command, and create the order.
+            </p>
+          ) : (
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted)]">
+              This order stays grounded in the current product surface: define the workload, set the
+              expected output, and attach a repo or command that can expand into paid GPU execution.
+            </p>
+          )}
         </div>
-        <div className="rounded-full border border-[var(--border)] bg-white/5 px-4 py-2 text-sm text-[var(--muted)]">
-          One offer · Fixed price · One job credit
+        {compact ? null : (
+          <div className="rounded-full border border-[var(--border)] bg-white/[0.04] px-4 py-2 text-sm text-[var(--muted)]">
+            Agent-ready · paid execution · proof attached
+          </div>
+        )}
         </div>
-      </div>
 
       <form
-        className="grid gap-5 md:grid-cols-2"
+        className="grid gap-4 md:grid-cols-2"
         onSubmit={(event) => {
           event.preventDefault();
           setError(null);
@@ -84,11 +115,12 @@ export function OrderForm() {
         }}
       >
         <label className="space-y-2">
-          <span className="text-sm text-[var(--muted)]">Name</span>
+          <span className="text-sm text-[var(--muted)]">Operator</span>
           <input
             name="customerName"
             required
-            className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-none ring-0 transition focus:border-[var(--accent)]"
+            placeholder="Who is launching the run?"
+            className="w-full rounded-[1.1rem] border border-white/10 bg-white/[0.04] px-4 py-3 text-white outline-none ring-0 transition focus:border-[var(--accent)] focus:bg-white/[0.08]"
           />
         </label>
 
@@ -98,16 +130,16 @@ export function OrderForm() {
             name="contact"
             required
             placeholder="email, Telegram, X handle"
-            className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-none transition focus:border-[var(--accent)]"
+            className="w-full rounded-[1.1rem] border border-white/10 bg-white/[0.04] px-4 py-3 text-white outline-none transition focus:border-[var(--accent)] focus:bg-white/[0.08]"
           />
         </label>
 
         <label className="space-y-2">
-          <span className="text-sm text-[var(--muted)]">Job Type</span>
+          <span className="text-sm text-[var(--muted)]">Workload Type</span>
           <select
             name="jobType"
             defaultValue="inference"
-            className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-none transition focus:border-[var(--accent)]"
+            className="w-full rounded-[1.1rem] border border-white/10 bg-white/[0.04] px-4 py-3 text-white outline-none transition focus:border-[var(--accent)] focus:bg-[var(--bg-soft)]"
           >
             {jobTypes.map((item) => (
               <option key={item.value} value={item.value}>
@@ -122,7 +154,7 @@ export function OrderForm() {
           <input
             name="repoUrl"
             placeholder="https://github.com/your/repo"
-            className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-none transition focus:border-[var(--accent)]"
+            className="w-full rounded-[1.1rem] border border-white/10 bg-white/[0.04] px-4 py-3 text-white outline-none transition focus:border-[var(--accent)] focus:bg-white/[0.08]"
           />
         </label>
 
@@ -131,8 +163,8 @@ export function OrderForm() {
           <input
             name="command"
             required
-            placeholder='python -c "print(\"hello from CloudAGI\")"'
-            className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-none transition focus:border-[var(--accent)]"
+            placeholder='python -m agent.expand_compute --gpu A10G --task "fine-tune adapter"'
+            className="w-full rounded-[1.1rem] border border-white/10 bg-white/[0.04] px-4 py-3 text-white outline-none transition focus:border-[var(--accent)] focus:bg-white/[0.08]"
           />
         </label>
 
@@ -141,8 +173,9 @@ export function OrderForm() {
           <textarea
             name="inputNotes"
             required
-            rows={5}
-            className="w-full rounded-[1.5rem] border border-white/10 bg-black/20 px-4 py-3 text-white outline-none transition focus:border-[var(--accent)]"
+            rows={4}
+            placeholder="What is the agent trying to achieve, what budget wall did it hit, and what extra compute should this order unlock?"
+            className="w-full rounded-[1.2rem] border border-white/10 bg-white/[0.04] px-4 py-3 text-white outline-none transition focus:border-[var(--accent)] focus:bg-white/[0.08]"
           />
         </label>
 
@@ -151,8 +184,9 @@ export function OrderForm() {
           <textarea
             name="expectedOutput"
             required
-            rows={4}
-            className="w-full rounded-[1.5rem] border border-white/10 bg-black/20 px-4 py-3 text-white outline-none transition focus:border-[var(--accent)]"
+            rows={3}
+            placeholder="Artifacts, logs, model output, eval results, or any proof that the added compute actually completed useful work."
+            className="w-full rounded-[1.2rem] border border-white/10 bg-white/[0.04] px-4 py-3 text-white outline-none transition focus:border-[var(--accent)] focus:bg-white/[0.08]"
           />
         </label>
 
@@ -160,87 +194,110 @@ export function OrderForm() {
           <button
             type="submit"
             disabled={isPending}
-            className="rounded-full bg-[var(--accent)] px-6 py-3 font-medium text-white transition hover:bg-[#ff7a45] disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-full border border-white/12 bg-[linear-gradient(180deg,rgba(18,30,47,0.98),rgba(10,17,29,0.98))] px-5 py-3 text-sm font-medium text-white transition hover:bg-[linear-gradient(180deg,rgba(24,38,58,0.98),rgba(12,21,35,0.98))] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isPending ? "Creating order..." : "Create order"}
+            {isPending ? "Creating order..." : "Create expansion order"}
           </button>
           <a
-            href="#payment-flow"
-            className="rounded-full border border-white/10 px-6 py-3 text-sm text-[var(--muted)] transition hover:border-white/20 hover:text-white"
+            href={reviewHref}
+            className="rounded-full border border-white/10 px-5 py-3 text-sm text-[var(--muted)] transition hover:border-white/20 hover:bg-white/[0.04] hover:text-white"
           >
-            Review payment flow
+            Review the flow
           </a>
         </div>
-      </form>
+        </form>
 
-      {error ? (
-        <div className="mt-6 rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm text-red-100">
-          {error}
-        </div>
-      ) : null}
+        {error ? (
+          <div className="mt-6 rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+            {error}
+          </div>
+        ) : null}
 
-      {result ? (
-        <div className="mt-6 grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-          <div className="rounded-[1.75rem] border border-white/10 bg-black/20 p-5">
-            <p className="mb-2 text-xs uppercase tracking-[0.28em] text-[var(--accent-2)]">
-              Order Created
-            </p>
-            <div className="space-y-3 text-sm text-[var(--muted)]">
-              <div>
-                <span className="text-white">Order ID</span>
-                <div className="mt-1 break-all rounded-xl bg-black/30 px-3 py-2 font-mono text-xs text-white">
-                  {result.order.id}
-                </div>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
+        {result ? (
+          <div className="mt-6 grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+            <div className="relative overflow-hidden rounded-[1.75rem] border border-white/12 bg-[linear-gradient(180deg,rgba(8,15,27,0.92),rgba(4,8,16,0.98))] p-5">
+            <GlowingEffect
+              spread={38}
+              glow
+              disabled={false}
+              proximity={72}
+              inactiveZone={0.01}
+              borderWidth={3}
+            />
+            <div className="relative z-10">
+              <p className="mb-2 text-xs uppercase tracking-[0.28em] text-[var(--accent-soft)]">
+                Order Created
+              </p>
+              <div className="space-y-3 text-sm text-[var(--muted)]">
                 <div>
-                  <span className="text-white">Status</span>
-                  <div className="mt-1">{result.order.status}</div>
+                  <span className="text-white">Order ID</span>
+                  <div className="mt-1 break-all rounded-xl bg-black/30 px-3 py-2 font-mono text-xs text-white">
+                    {result.order.id}
+                  </div>
                 </div>
-                <div>
-                  <span className="text-white">Price</span>
-                  <div className="mt-1">{result.order.priceLabel}</div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <span className="text-white">Status</span>
+                    <div className="mt-1">{result.order.status}</div>
+                  </div>
+                  <div>
+                    <span className="text-white">Price</span>
+                    <div className="mt-1">{result.order.priceLabel}</div>
+                  </div>
                 </div>
+                <a
+                  href={`/orders/${result.order.id}`}
+                  className="inline-flex rounded-full border border-white/12 bg-[linear-gradient(180deg,rgba(18,30,47,0.98),rgba(10,17,29,0.98))] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-[linear-gradient(180deg,rgba(24,38,58,0.98),rgba(12,21,35,0.98))]"
+                >
+                  Open order status
+                </a>
               </div>
-              <a
-                href={`/orders/${result.order.id}`}
-                className="inline-flex rounded-full bg-white px-5 py-2.5 text-sm font-medium text-[#07111c] transition hover:bg-[var(--accent-2)]"
-              >
-                Open order status
-              </a>
+            </div>
+            </div>
+
+            <div className="relative overflow-hidden rounded-[1.75rem] border border-white/12 bg-[linear-gradient(180deg,rgba(8,15,27,0.92),rgba(4,8,16,0.98))] p-5">
+            <GlowingEffect
+              spread={38}
+              glow
+              disabled={false}
+              proximity={72}
+              inactiveZone={0.01}
+              borderWidth={3}
+            />
+            <div className="relative z-10">
+              <p className="mb-2 text-xs uppercase tracking-[0.28em] text-[var(--accent-soft)]">
+                Payment
+              </p>
+              <div className="space-y-3 text-sm text-[var(--muted)]">
+                <div>{result.payment.instructions}</div>
+                {"agentId" in result.payment ? (
+                  <>
+                    <div>
+                      <span className="text-white">Rail</span>
+                      <div className="mt-1 capitalize text-white/[0.85]">
+                        {result.payment.paymentRail}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-white">Agent ID</span>
+                      <div className="mt-1 break-all font-mono text-xs text-white/[0.85]">
+                        {result.payment.agentId}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-white">Plan ID</span>
+                      <div className="mt-1 break-all font-mono text-xs text-white/[0.85]">
+                        {result.payment.planId}
+                      </div>
+                    </div>
+                  </>
+                ) : null}
+              </div>
+            </div>
             </div>
           </div>
-
-          <div className="rounded-[1.75rem] border border-white/10 bg-black/20 p-5">
-            <p className="mb-2 text-xs uppercase tracking-[0.28em] text-[var(--accent-2)]">
-              Payment
-            </p>
-            <div className="space-y-3 text-sm text-[var(--muted)]">
-              <div>{result.payment.instructions}</div>
-              {"agentId" in result.payment ? (
-                <>
-                  <div>
-                    <span className="text-white">Rail</span>
-                    <div className="mt-1 capitalize text-white/85">{result.payment.paymentRail}</div>
-                  </div>
-                  <div>
-                    <span className="text-white">Agent ID</span>
-                    <div className="mt-1 break-all font-mono text-xs text-white/85">
-                      {result.payment.agentId}
-                    </div>
-                  </div>
-                  <div>
-                    <span className="text-white">Plan ID</span>
-                    <div className="mt-1 break-all font-mono text-xs text-white/85">
-                      {result.payment.planId}
-                    </div>
-                  </div>
-                </>
-              ) : null}
-            </div>
-          </div>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
     </div>
   );
 }

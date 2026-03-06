@@ -35,13 +35,88 @@ CloudAGI/
 
 ## Services
 
-| Service | Route | Price | Requires |
-|---------|-------|-------|----------|
-| GPU Compute | `POST /v1/services/gpu-compute/execute` | 1 USDC | Modal auth |
-| AI Research | `POST /v1/services/ai-research/execute` | 0.10 USDC | `EXA_API_KEY` |
-| Web Scraper | `POST /v1/services/web-scraper/execute` | 0.20 USDC | `APIFY_API_TOKEN` |
-| Code Review | `POST /v1/services/code-review/execute` | 0.50 USDC | `ANTHROPIC_API_KEY` |
-| Smart Search | `POST /v1/services/smart-search/execute` | 0.05 USDC | `EXA_API_KEY` |
+## Architecture
+
+```mermaid
+graph LR
+    subgraph Frontend["web/ (Next.js :3000)"]
+        LP["Landing Page"]
+        OF["Order Form"]
+        SP["Order Status Page"]
+    end
+
+    subgraph Backend["backend/ (Bun :3001)"]
+        API["API Router"]
+        OS["Order Store (in-memory)"]
+        NVM["Nevermined Integration"]
+        TR["Trinity Adapter"]
+        MR["Modal Runner"]
+    end
+
+    subgraph External["External Services"]
+        NEV["Nevermined (Payments)"]
+        TRI["Trinity (Orchestration)"]
+        MOD["Modal (GPU Sandboxes)"]
+    end
+
+    LP --> OF
+    OF -->|POST /v1/orders| API
+    API --> OS
+    SP -->|GET /v1/orders/:id| API
+    SP -->|GET /v1/orders/:id/logs| API
+    SP -->|GET /v1/orders/:id/artifacts| API
+    API --> NVM
+    NVM --> NEV
+    API --> TR
+    TR --> TRI
+    API --> MR
+    MR --> MOD
+```
+
+## Transaction Flow
+
+```mermaid
+sequenceDiagram
+    actor Customer
+    participant Web as Next.js Frontend
+    participant API as Bun Backend
+    participant NVM as Nevermined
+    participant Trinity as Trinity Orchestrator
+    participant Modal as Modal GPU
+
+    Note over Customer, Modal: 1 — Order Creation
+    Customer->>Web: Fills order form
+    Web->>API: POST /v1/orders
+    API-->>Web: Order + Nevermined plan metadata
+
+    Note over Customer, Modal: 2 — Payment (crypto OR fiat)
+    alt NVM_PAYMENT_RAIL = crypto
+        Customer->>NVM: Buys plan with USDC on-chain (erc4337)
+    else NVM_PAYMENT_RAIL = fiat
+        Customer->>NVM: Buys plan via Stripe checkout (card-delegation)
+    end
+    NVM-->>Customer: x402 access token
+
+    Note over Customer, Modal: 3 — Paid Execution
+    Customer->>API: POST /v1/orders/:id/start (payment-signature)
+    API->>NVM: verifyPermissions + settlePermissions
+    NVM-->>API: ✅ Verified & Settled
+
+    Note over Customer, Modal: 4 — Orchestration & Execution
+    API->>Trinity: Start workflow
+    Trinity-->>API: Request agent step execution
+    API->>Modal: Create sandbox (image, GPU, timeout)
+    Modal-->>API: Logs + exit code
+
+    Note over Customer, Modal: 5 — Completion & Delivery
+    Trinity-->>API: Finalize run
+    API->>API: Update order → succeeded/failed
+    Customer->>Web: Checks status page
+    Web->>API: GET /v1/orders/:id + logs + artifacts
+    Web-->>Customer: Logs + download links
+```
+
+## Stack
 
 All service execution endpoints are gated by Nevermined x402 payments when configured.
 
@@ -197,6 +272,22 @@ You can also register just the legacy single agent:
 ```bash
 bun run register:nevermined
 ```
+
+If you are registering manually through the Nevermined dashboard instead of the script:
+
+| Field                           | Value                                         |
+| ------------------------------- | --------------------------------------------- |
+| **Agent definition URL**        | `{APP_BASE_URL}/.well-known/agent.json`       |
+| **Protected API Endpoint URLs** | `POST` → `{APP_BASE_URL}/v1/orders/:id/start` |
+
+Where `{APP_BASE_URL}` is your public backend URL, for example `https://abc123.trycloudflare.com` from a Cloudflare tunnel or `https://api.cloudagi.org` in production.
+
+That script uses:
+
+- the configured payment rail in `NVM_PAYMENT_RAIL`
+- the configured USDC token address in `NVM_USDC_ADDRESS` when using crypto
+- the receiving address in `NVM_BUILDER_ADDRESS`
+- the current CloudAGI offer name, display price, and raw registration units from `backend/.env`
 
 ## Payment Flow
 
