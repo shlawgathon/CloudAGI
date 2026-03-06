@@ -12,7 +12,7 @@ import {
 } from "./payments/nevermined";
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": config.corsOrigin,
   "Access-Control-Allow-Headers": "Content-Type, PAYMENT-SIGNATURE, payment-signature, x-admin-key",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS"
 };

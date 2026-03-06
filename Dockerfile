@@ -7,7 +7,6 @@ RUN bun install --frozen-lockfile --production
 
 # Copy source
 COPY src/ src/
-COPY public/ public/
 COPY tsconfig.json ./
 
 EXPOSE 3000

@@ -14,6 +14,7 @@ export const config = {
   port: toInt(process.env.PORT, 3000),
   appBaseUrl: process.env.APP_BASE_URL || "http://localhost:3000",
   adminKey: process.env.ADMIN_KEY || "",
+  corsOrigin: process.env.CORS_ORIGIN || "https://cloudagi.org",
   offerName: process.env.CLOUDAGI_OFFER_NAME || "CloudAGI Fast Run",
   priceUsdc: process.env.CLOUDAGI_PRICE_USDC || "25",
   offerCredits: BigInt(process.env.CLOUDAGI_PLAN_CREDITS || "1"),

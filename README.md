@@ -9,12 +9,12 @@ This repo implements the first transaction path. It is intentionally not a marke
 - Bun + TypeScript backend
 - Modal JavaScript SDK for execution
 - Nevermined Payments SDK for USDC-priced plans and x402 payment gating
-- Next.js 16 + React + Tailwind + TypeScript frontend in [`web/`](/Users/xiao/CloudAGI/web)
+- Next.js 16 + React + Tailwind + TypeScript frontend in [`web/`](./web)
 
 ## What Exists
 
-- Marketing / order frontend in [`web/app/page.tsx`](/Users/xiao/CloudAGI/web/app/page.tsx)
-- Order status frontend in [`web/app/orders/[id]/page.tsx`](/Users/xiao/CloudAGI/web/app/orders/[id]/page.tsx)
+- Marketing / order frontend in [`web/app/page.tsx`](./web/app/page.tsx)
+- Order status frontend in [`web/app/orders/[id]/page.tsx`](./web/app/orders/[id]/page.tsx)
 - Order creation endpoint: `POST /v1/orders`
 - Order lookup endpoint: `GET /v1/orders/:id`
 - Paid execution endpoint: `POST /v1/orders/:id/start`
@@ -92,14 +92,14 @@ This always tunnels the backend on `3001` and kills any older `cloudflared` proc
 Important:
 
 - The quick Tunnel URL changes every time you restart it.
-- If you want `/.well-known/agent.json` and Nevermined discovery to point at the current public URL, update `APP_BASE_URL` in [`.env`](/Users/xiao/CloudAGI/.env) to the new tunnel URL.
+- If you want `/.well-known/agent.json` and Nevermined discovery to point at the current public URL, update `APP_BASE_URL` in [`.env`](./.env) to the new tunnel URL.
 - If your Nevermined agent has already been registered, update the agent metadata after changing `APP_BASE_URL`.
 
 ## Environment Files
 
 ### Backend env
 
-The Bun API reads config from [`.env`](/Users/xiao/CloudAGI/.env).
+The Bun API reads config from [`.env`](./.env).
 
 Important backend variables:
 
@@ -121,7 +121,7 @@ Important backend variables:
 
 ### Frontend env
 
-The Next app reads config from [`web/.env.local`](/Users/xiao/CloudAGI/web/.env.example).
+The Next app reads config from [`web/.env.local`](./web/.env.example).
 
 Important frontend variables:
 
@@ -130,7 +130,7 @@ Important frontend variables:
 
 Notes:
 
-- If `NEXT_PUBLIC_API_BASE_URL` is empty, the frontend uses Next rewrites from [`web/next.config.ts`](/Users/xiao/CloudAGI/web/next.config.ts) and proxies `/api/*` to `BACKEND_URL`.
+- If `NEXT_PUBLIC_API_BASE_URL` is empty, the frontend uses Next rewrites from [`web/next.config.ts`](./web/next.config.ts) and proxies `/api/*` to `BACKEND_URL`.
 - For normal local development, the default `BACKEND_URL=http://127.0.0.1:3001` is correct.
 
 ## Runtime Scripts
@@ -191,7 +191,7 @@ That script uses:
 
 - Order state is in-memory. Restarting the backend clears orders.
 - Artifacts are written to `data/artifacts/`.
-- The backend is API-only; the UI now lives entirely in [`web/`](/Users/xiao/CloudAGI/web).
+- The backend is API-only; the UI now lives entirely in [`web/`](./web).
 - A real paid transaction still requires valid Nevermined credentials, `NVM_AGENT_ID`, `NVM_PLAN_ID`, and a reachable public deployment URL.
 - The current USDC plan is not yet subscribed for the builder wallet, so Nevermined verification returns a payment failure until a real subscriber orders the plan and generates a fresh x402 token.
 - Failed Nevermined verification now returns `402` with a payment challenge and troubleshooting message instead of a raw `500`.
@@ -214,12 +214,12 @@ bun run build
 
 ## Important Files
 
-- [`.env`](/Users/xiao/CloudAGI/.env)
-- [`web/.env.example`](/Users/xiao/CloudAGI/web/.env.example)
-- [`src/index.ts`](/Users/xiao/CloudAGI/src/index.ts)
-- [`src/jobs/modal.ts`](/Users/xiao/CloudAGI/src/jobs/modal.ts)
-- [`src/payments/nevermined.ts`](/Users/xiao/CloudAGI/src/payments/nevermined.ts)
-- [`src/scripts/register-nevermined.ts`](/Users/xiao/CloudAGI/src/scripts/register-nevermined.ts)
-- [`web/app/page.tsx`](/Users/xiao/CloudAGI/web/app/page.tsx)
-- [`web/app/orders/[id]/page.tsx`](/Users/xiao/CloudAGI/web/app/orders/[id]/page.tsx)
-- [`docs/plans/2026-03-06-cloudagi-first-transaction.md`](/Users/xiao/CloudAGI/docs/plans/2026-03-06-cloudagi-first-transaction.md)
+- [`.env`](./.env)
+- [`web/.env.example`](./web/.env.example)
+- [`src/index.ts`](./src/index.ts)
+- [`src/jobs/modal.ts`](./src/jobs/modal.ts)
+- [`src/payments/nevermined.ts`](./src/payments/nevermined.ts)
+- [`src/scripts/register-nevermined.ts`](./src/scripts/register-nevermined.ts)
+- [`web/app/page.tsx`](./web/app/page.tsx)
+- [`web/app/orders/[id]/page.tsx`](./web/app/orders/[id]/page.tsx)
+- [`docs/plans/2026-03-06-cloudagi-first-transaction.md`](./docs/plans/2026-03-06-cloudagi-first-transaction.md)
