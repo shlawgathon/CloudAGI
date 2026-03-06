@@ -31,6 +31,8 @@ export interface OrderAgentExecution {
   stdout?: string;
   stderr?: string;
   callbackStatus?: "pending" | "received";
+  durationMs?: number;
+  creditsUsed?: number;
 }
 
 export interface OrderOrchestration {
@@ -45,6 +47,12 @@ export interface OrderOrchestration {
   agents: OrderAgentExecution[];
 }
 
+export interface ComputeSummary {
+  totalDurationMs: number;
+  totalCreditsUsed: number;
+  gpuHoursRequested: number;
+}
+
 export interface Order {
   id: string;
   customerName: string;
@@ -54,6 +62,7 @@ export interface Order {
   command: string[];
   inputNotes: string;
   expectedOutput: string;
+  gpuHours?: number;
   priceLabel: string;
   status: OrderStatus;
   logs: string;
@@ -64,6 +73,7 @@ export interface Order {
     paymentRail: "crypto" | "fiat";
   };
   orchestration?: OrderOrchestration;
+  compute?: ComputeSummary;
   createdAt: string;
   updatedAt: string;
   startedAt?: string;

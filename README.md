@@ -20,60 +20,125 @@ CloudAGI/
 │   │   │       ├── code-review.ts   # Claude code analysis
 │   │   │       └── smart-search.ts  # Multi-source aggregator
 │   │   ├── discovery/     # Nevermined Discovery API client
-│   │   ├── payments/      # x402 verification + settlement
-│   │   ├── jobs/          # Modal GPU job execution
-│   │   ├── orders/        # Order state management
+│   │   ├── payments/      # x402 verification + settlement + balance
+│   │   ├── jobs/          # Modal GPU job execution + compute tracking
+│   │   ├── orders/        # Order state + compute summary
 │   │   ├── orchestration/ # Trinity workflow adapter
-│   │   └── scripts/       # Registration + deployment scripts
+│   │   └── scripts/       # Registration + purchasing scripts
+│   │       ├── register-nevermined.ts    # Register agent + plan
+│   │       ├── buy-from-marketplace.ts   # Discover + buy from sellers
+│   │       └── bulk-buy.ts              # Mass-purchase for leaderboard
 │   ├── .env.example       # Local dev env template
 │   └── .env.production    # Production env template
+├── purchaser/             # Python purchaser agent
+│   └── pay_and_call.py    # Buy + call via payments_py SDK
 ├── web/                   # Next.js frontend
 │   ├── app/
 │   └── .env.example
 └── reference/             # Nevermined hackathon examples (gitignored)
 ```
 
-## Services
-
-## Architecture
+## System Flow
 
 ```mermaid
 graph LR
-    subgraph Frontend["web/ (Next.js :3000)"]
+    subgraph Frontend["web/ (Next.js)"]
         LP["Landing Page"]
         OF["Order Form"]
-        SP["Order Status Page"]
+        SP["Status Page"]
     end
 
-    subgraph Backend["backend/ (Bun :3001)"]
+    subgraph Backend["backend/ (Bun)"]
         API["API Router"]
-        OS["Order Store (in-memory)"]
-        NVM["Nevermined Integration"]
+        REG["Service Registry"]
+        NVM["Nevermined x402"]
+        DISC["Discovery Client"]
+        OS["Order Store"]
         TR["Trinity Adapter"]
-        MR["Modal Runner"]
+    end
+
+    subgraph Handlers["Service Handlers"]
+        GPU["GPU Compute"]
+        AIR["AI Research"]
+        WS["Web Scraper"]
+        CR["Code Review"]
+        SS["Smart Search"]
     end
 
     subgraph External["External Services"]
-        NEV["Nevermined (Payments)"]
-        TRI["Trinity (Orchestration)"]
-        MOD["Modal (GPU Sandboxes)"]
+        NEV["Nevermined"]
+        MOD["Modal"]
+        EXA["Exa"]
+        APF["Apify"]
+        ANT["Anthropic"]
+        TRI["Trinity"]
     end
 
     LP --> OF
     OF -->|POST /v1/orders| API
-    API --> OS
     SP -->|GET /v1/orders/:id| API
-    SP -->|GET /v1/orders/:id/logs| API
-    SP -->|GET /v1/orders/:id/artifacts| API
+
+    API --> REG
     API --> NVM
-    NVM --> NEV
+    API --> DISC
+    API --> OS
     API --> TR
+
+    REG --> GPU
+    REG --> AIR
+    REG --> WS
+    REG --> CR
+    REG --> SS
+
+    NVM --> NEV
+    DISC --> NEV
+    GPU --> MOD
+    AIR --> EXA
+    WS --> APF
+    CR --> ANT
+    SS --> EXA
     TR --> TRI
-    API --> MR
-    MR --> MOD
 ```
 
+## Payment and Cost Tracking
+
+**1 credit = 1 GPU-minute.** Customer picks hours, Nevermined mints `hours × 60` credits. CloudAGI settles credits per Trinity step based on actual wall-clock time.
+
+```mermaid
+graph TD
+    subgraph Nevermined["Nevermined (credit ledger)"]
+        direction TB
+        REG["Plan registered:<br/>price + credits (hours × 60)"]
+        BUY["Customer buys plan:<br/>USDC or Stripe"]
+        MINT["Credits minted:<br/>e.g. 2h = 120 credits"]
+        BAL["getPlanBalance:<br/>remaining credits"]
+        SETTLE["settlePermissions:<br/>burn ceil(durationMs / 60000)"]
+    end
+
+    subgraph CloudAGI["CloudAGI (per-step metering)"]
+        direction TB
+        STASH["Stash x402 token on order"]
+        CHECK["Before step: check balance ≥ 1"]
+        RUN["Modal sandbox: record startMs → endMs"]
+        CALC["creditsUsed = max(1, ceil(deltaMs / 60000))"]
+        TRACK["Update order.compute summary"]
+    end
+
+    REG --> BUY --> MINT --> BAL --> SETTLE
+    STASH --> CHECK --> RUN --> CALC --> TRACK
+    BAL -.->|"verify"| CHECK
+    CALC -.->|"settle"| SETTLE
+```
+
+| Layer          | Tracks                                            | Example                                             |
+| -------------- | ------------------------------------------------- | --------------------------------------------------- |
+| **Nevermined** | Credit balance, settlements, payment tx           | "120 credits minted, 13 settled, 107 remaining"     |
+| **CloudAGI**   | Per-step durationMs, creditsUsed, compute summary | "executor: 503000ms → 9 credits; total: 13 credits" |
+| **Modal**      | GPU-seconds billed to our account                 | "4 sandboxes, 188 GPU-seconds total"                |
+
 ## Transaction Flow
+
+### Trinity orchestration (primary)
 
 ```mermaid
 sequenceDiagram
@@ -84,77 +149,105 @@ sequenceDiagram
     participant Trinity as Trinity Orchestrator
     participant Modal as Modal GPU
 
-    Note over Customer, Modal: 1 — Order Creation
-    Customer->>Web: Fills order form
-    Web->>API: POST /v1/orders
+    Customer->>Web: Fills order form (picks GPU hours)
+    Web->>API: POST /v1/orders {gpuHours}
     API-->>Web: Order + Nevermined plan metadata
 
-    Note over Customer, Modal: 2 — Payment (crypto OR fiat)
+    Note over Customer, Modal: Payment (crypto OR fiat)
     alt NVM_PAYMENT_RAIL = crypto
-        Customer->>NVM: Buys plan with USDC on-chain (erc4337)
+        Customer->>NVM: Buys plan with USDC (erc4337)
     else NVM_PAYMENT_RAIL = fiat
-        Customer->>NVM: Buys plan via Stripe checkout (card-delegation)
+        Customer->>NVM: Buys plan via Stripe (card-delegation)
     end
-    NVM-->>Customer: x402 access token
+    NVM-->>Customer: x402 access token (hours × 60 credits)
 
-    Note over Customer, Modal: 3 — Paid Execution
     Customer->>API: POST /v1/orders/:id/start (payment-signature)
-    API->>NVM: verifyPermissions + settlePermissions
-    NVM-->>API: ✅ Verified & Settled
-
-    Note over Customer, Modal: 4 — Orchestration & Execution
+    API->>NVM: verifyPermissions + settlePermissions (1 credit)
+    NVM-->>API: ✅ Settled
+    API->>API: Stash token + init compute summary
     API->>Trinity: Start workflow
-    Trinity-->>API: Request agent step execution
-    API->>Modal: Create sandbox (image, GPU, timeout)
-    Modal-->>API: Logs + exit code
 
-    Note over Customer, Modal: 5 — Completion & Delivery
-    Trinity-->>API: Finalize run
-    API->>API: Update order → succeeded/failed
+    Note over Trinity, Modal: Agent loop (planner → executor → reviewer → packager)
+    loop Each agent step
+        Trinity-->>API: execute-step (role, stepId)
+        API->>NVM: getPlanBalance()
+        NVM-->>API: Remaining credits
+        alt Credits ≥ 1
+            API->>Modal: Create sandbox (GPU, timeout)
+            Modal-->>API: Logs + exit code
+            API->>API: creditsUsed = ceil(durationMs / 60000)
+            API->>NVM: settlePermissions(creditsUsed)
+        else Credits exhausted
+            API-->>Trinity: Step rejected (insufficient credits)
+        end
+        Trinity-->>API: step-callback (status)
+    end
+
+    Trinity-->>API: finalize-run
+    API->>API: Record final compute summary
+
     Customer->>Web: Checks status page
-    Web->>API: GET /v1/orders/:id + logs + artifacts
-    Web-->>Customer: Logs + download links
+    Web-->>Customer: Logs + artifacts + cost breakdown
 ```
 
-## Stack
+### Direct service execution
 
-All service execution endpoints are gated by Nevermined x402 payments when configured.
+```mermaid
+sequenceDiagram
+    actor Buyer
+    participant API as Bun Backend
+    participant NVM as Nevermined
+    participant Handler as Service Handler
+
+    Buyer->>API: GET /v1/services (browse catalog)
+    API-->>Buyer: 5 services + pricing
+
+    Buyer->>NVM: Pay (USDC or Stripe)
+    NVM-->>Buyer: x402 access token
+
+    Buyer->>API: POST /v1/services/:id/execute (payment-signature)
+    API->>NVM: verify + settle
+    API->>Handler: Execute (gpu-compute / ai-research / etc.)
+    Handler-->>API: Result
+    API-->>Buyer: Response with data
+```
 
 ## API Endpoints
 
 ### Public
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/` | Service info |
-| GET | `/v1/health` | Health check |
-| GET | `/.well-known/agent.json` | A2A agent card (all services) |
-| GET | `/v1/services` | Service catalog |
-| GET | `/v1/services/:id` | Service details + pricing |
+| Method | Path                      | Description                   |
+| ------ | ------------------------- | ----------------------------- |
+| GET    | `/`                       | Service info                  |
+| GET    | `/v1/health`              | Health check                  |
+| GET    | `/.well-known/agent.json` | A2A agent card (all services) |
+| GET    | `/v1/services`            | Service catalog               |
+| GET    | `/v1/services/:id`        | Service details + pricing     |
 
 ### Paid (x402)
 
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/v1/services/:id/execute` | Execute a service |
-| POST | `/v1/orders/:id/start` | Start order (legacy flow) |
+| Method | Path                       | Description                                                  |
+| ------ | -------------------------- | ------------------------------------------------------------ |
+| POST   | `/v1/services/:id/execute` | Execute a service (single call, 1 credit)                    |
+| POST   | `/v1/orders/:id/start`     | Start Trinity run (per-step settlement, `ceil(min)` credits) |
 
 ### Discovery
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/v1/discover/sellers` | Find other Nevermined agents |
-| GET | `/v1/discover/buyers` | Find potential buyers |
+| Method | Path                   | Description                  |
+| ------ | ---------------------- | ---------------------------- |
+| GET    | `/v1/discover/sellers` | Find other Nevermined agents |
+| GET    | `/v1/discover/buyers`  | Find potential buyers        |
 
-### Orders (legacy)
+### Orders
 
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/v1/orders` | Create order |
-| GET | `/v1/orders/:id` | Get order status |
-| GET | `/v1/orders/:id/logs` | Get logs |
-| GET | `/v1/orders/:id/artifacts` | List artifacts |
-| GET | `/v1/orders/:id/artifacts/:name` | Download artifact |
+| Method | Path                             | Description                               |
+| ------ | -------------------------------- | ----------------------------------------- |
+| POST   | `/v1/orders`                     | Create order (`{gpuHours, command, ...}`) |
+| POST   | `/v1/agent/orders`               | Create order (agent-to-agent schema)      |
+| GET    | `/v1/orders/:id`                 | Get order status + compute summary        |
+| GET    | `/v1/orders/:id/logs`            | Get logs                                  |
+| GET    | `/v1/orders/:id/artifacts`       | List artifacts                            |
+| GET    | `/v1/orders/:id/artifacts/:name` | Download artifact                         |
 
 ## Quick Start
 
@@ -209,15 +302,20 @@ cp .env.example .env
 ```
 
 **Required for basic operation:**
+
 - `PORT`, `HOST`, `APP_BASE_URL`, `CORS_ORIGIN` — server config
 
 **Required for Nevermined payments:**
+
 - `NVM_API_KEY` — from https://nevermined.app > Settings > API Keys
 - `NVM_BUILDER_ADDRESS` — your wallet address from Nevermined profile
 - `NVM_PAYMENT_RAIL` — `fiat` (Stripe) or `crypto` (USDC)
 - `NVM_AGENT_ID`, `NVM_PLAN_ID` — output of `bun run register:all-services`
+- `CLOUDAGI_PLAN_CREDITS` — GPU hours per plan (default: 1, gives 60 credits)
+- `CLOUDAGI_PRICE_PER_HOUR` — price per GPU hour (default: 25)
 
 **Per-service Nevermined IDs** (optional, falls back to default):
+
 - `NVM_GPU_COMPUTE_AGENT_ID`, `NVM_GPU_COMPUTE_PLAN_ID`
 - `NVM_AI_RESEARCH_AGENT_ID`, `NVM_AI_RESEARCH_PLAN_ID`
 - `NVM_WEB_SCRAPER_AGENT_ID`, `NVM_WEB_SCRAPER_PLAN_ID`
@@ -225,15 +323,18 @@ cp .env.example .env
 - `NVM_SMART_SEARCH_AGENT_ID`, `NVM_SMART_SEARCH_PLAN_ID`
 
 **Sponsor API keys** (each enables its service):
+
 - `EXA_API_KEY` — from https://exa.ai (enables AI Research + Smart Search)
 - `APIFY_API_TOKEN` — from https://apify.com (enables Web Scraper)
 - `ANTHROPIC_API_KEY` — from Anthropic (enables Code Review)
 
 **Modal** (GPU compute):
+
 - Auth via `~/.modal.toml` (run `modal token set` locally)
 - Or set `MODAL_TOKEN_ID` + `MODAL_TOKEN_SECRET` in env
 
 **Trinity** (orchestration, optional for service-only mode):
+
 - `TRINITY_BASE_URL`, `TRINITY_API_KEY`, `TRINITY_SHARED_SECRET`
 
 ### Frontend (`web/.env.local`)
@@ -299,13 +400,15 @@ That script uses:
 4. Buyer calls `POST /v1/services/:id/execute` with `PAYMENT-SIGNATURE` header
 5. CloudAGI verifies + settles payment, executes the service, returns results
 
-### Order flow (legacy)
+### Order flow (Trinity orchestration)
 
-1. Customer creates order via `POST /v1/orders`
-2. Customer pays via Nevermined
+1. Customer creates order via `POST /v1/orders` with `gpuHours` (1 credit = 1 GPU-minute)
+2. Customer pays via Nevermined (USDC or Stripe) — receives `hours × 60` credits
 3. Customer calls `POST /v1/orders/:id/start` with `PAYMENT-SIGNATURE`
-4. CloudAGI triggers Trinity workflow, runs agent steps in Modal sandboxes
-5. Logs + artifacts available at order endpoints
+4. CloudAGI verifies + settles 1 entry credit, stashes token for per-step settlement
+5. Trinity orchestrates agent steps (planner → executor → reviewer → packager)
+6. Each step: balance check → Modal sandbox → `ceil(durationMs/60000)` credits settled
+7. Logs + artifacts + compute breakdown available at order endpoints
 
 ## Adding a New Service
 
@@ -334,11 +437,13 @@ registerService({
 ```
 
 2. Add import in `backend/src/services/init.ts`:
+
 ```typescript
 import "./handlers/my-service";
 ```
 
 3. Register on Nevermined:
+
 ```bash
 cd backend && bun run register:all-services
 ```
@@ -367,6 +472,7 @@ vercel --prod
 ```
 
 Vercel env vars:
+
 - `NEXT_PUBLIC_API_BASE_URL=https://api.cloudagi.org`
 - `BACKEND_URL=https://api.cloudagi.org`
 
@@ -395,21 +501,25 @@ cd web && bun run typecheck && bun run build
 
 ## Scripts
 
-| Script | Directory | Description |
-|--------|-----------|-------------|
-| `bun run dev` | `backend/` | Start backend dev server (port 3000) |
-| `bun run typecheck` | `backend/` | TypeScript check |
-| `bun run register:all-services` | `backend/` | Register all 5 services on Nevermined |
-| `bun run register:nevermined` | `backend/` | Register single legacy agent |
-| `bun run deploy:trinity` | `backend/` | Deploy Trinity system |
-| `bun run dev:clear` | `backend/` | Kill stale listeners + tunnels |
-| `bun run dev:tunnel` | `backend/` | Start Cloudflare tunnel |
-| `bun run dev` | `web/` | Start frontend dev server |
-| `bun run build` | `web/` | Build frontend for production |
+| Script                          | Directory    | Description                             |
+| ------------------------------- | ------------ | --------------------------------------- |
+| `bun run dev`                   | `backend/`   | Start backend dev server (port 3000)    |
+| `bun run typecheck`             | `backend/`   | TypeScript check                        |
+| `bun run register:all-services` | `backend/`   | Register all 5 services on Nevermined   |
+| `bun run register:nevermined`   | `backend/`   | Register single legacy agent            |
+| `bun run deploy:trinity`        | `backend/`   | Deploy Trinity system                   |
+| `bun run buy:marketplace`       | `backend/`   | Discover + buy from marketplace sellers |
+| `bun run buy:bulk`              | `backend/`   | Mass-purchase from all sellers          |
+| `bun run dev:clear`             | `backend/`   | Kill stale listeners + tunnels          |
+| `bun run dev:tunnel`            | `backend/`   | Start Cloudflare tunnel                 |
+| `bun run dev`                   | `web/`       | Start frontend dev server               |
+| `bun run build`                 | `web/`       | Build frontend for production           |
+| `python3 pay_and_call.py`       | `purchaser/` | Python purchaser agent (CLI)            |
 
 ## Current Limitations
 
 - Order state is in-memory (restarting backend clears orders)
+- Compute tracking is per-order in-memory (not persisted)
 - Artifacts written to `data/artifacts/`
 - Services without their API key return an error (graceful degradation)
 - Real x402 transactions require valid Nevermined credentials + a reachable public URL

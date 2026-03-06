@@ -103,3 +103,9 @@ export async function settleAccessToken(
     maxAmount
   });
 }
+
+export async function getPlanBalance(planId?: string): Promise<{ balance: number }> {
+  const id = planId || config.nevermined.planId;
+  const result = await getPayments().plans.getPlanBalance(id);
+  return { balance: Number(result.balance) };
+}

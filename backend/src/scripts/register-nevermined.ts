@@ -51,11 +51,11 @@ async function main() {
     },
     {
       name: `${config.offerName} Plan`,
-      description: "Single paid GPU job execution credit.",
+      description: `GPU compute time plan. 1 credit = 1 GPU-minute. ${config.offerCredits} hour(s) included.`,
       dateCreated: new Date()
     },
     priceConfig,
-    payments.plans.getFixedCreditsConfig(config.offerCredits, 1n)
+    payments.plans.getFixedCreditsConfig(config.offerCredits * BigInt(config.creditsPerHour), 1n)
   );
 
   console.log(JSON.stringify({ agentId, planId }, null, 2));

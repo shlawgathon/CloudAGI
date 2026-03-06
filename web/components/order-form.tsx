@@ -13,6 +13,13 @@ const jobTypes = [
   { value: "custom", label: "Custom" }
 ];
 
+const gpuHourOptions = [
+  { value: "1", label: "1 hour (60 credits)" },
+  { value: "2", label: "2 hours (120 credits)" },
+  { value: "4", label: "4 hours (240 credits)" },
+  { value: "8", label: "8 hours (480 credits)" }
+];
+
 function splitCommand(value: string): string[] {
   return (
     value
@@ -96,7 +103,8 @@ export function OrderForm({
             repoUrl: String(formData.get("repoUrl") || "") || undefined,
             command,
             inputNotes: String(formData.get("inputNotes") || ""),
-            expectedOutput: String(formData.get("expectedOutput") || "")
+            expectedOutput: String(formData.get("expectedOutput") || ""),
+            gpuHours: Number(formData.get("gpuHours") || "1")
           };
 
           startTransition(async () => {
@@ -156,6 +164,21 @@ export function OrderForm({
             placeholder="https://github.com/your/repo"
             className="w-full rounded-[1.1rem] border border-white/10 bg-white/[0.04] px-4 py-3 text-white outline-none transition focus:border-[var(--accent)] focus:bg-white/[0.08]"
           />
+        </label>
+
+        <label className="space-y-2">
+          <span className="text-sm text-[var(--muted)]">GPU Hours</span>
+          <select
+            name="gpuHours"
+            defaultValue="1"
+            className="w-full rounded-[1.1rem] border border-white/10 bg-white/[0.04] px-4 py-3 text-white outline-none transition focus:border-[var(--accent)] focus:bg-[var(--bg-soft)]"
+          >
+            {gpuHourOptions.map((item) => (
+              <option key={item.value} value={item.value}>
+                {item.label}
+              </option>
+            ))}
+          </select>
         </label>
 
         <label className="space-y-2 md:col-span-2">

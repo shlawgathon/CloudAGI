@@ -65,6 +65,23 @@ export function OrderStatus({
             value={new Date(order.createdAt).toLocaleString()}
           />
         </div>
+
+        {order.compute ? (
+          <div className="mt-4 grid gap-4 md:grid-cols-3">
+            <Detail
+              label="GPU Hours Requested"
+              value={`${order.compute.gpuHoursRequested}h (${order.compute.gpuHoursRequested * 60} credits)`}
+            />
+            <Detail
+              label="Compute Used"
+              value={`${(order.compute.totalDurationMs / 1000).toFixed(1)}s · ${order.compute.totalCreditsUsed} credit(s)`}
+            />
+            <Detail
+              label="Credits Remaining"
+              value={`${(order.compute.gpuHoursRequested * 60) - order.compute.totalCreditsUsed} of ${order.compute.gpuHoursRequested * 60}`}
+            />
+          </div>
+        ) : null}
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
@@ -154,6 +171,18 @@ export function OrderStatus({
                     value={agent.exitCode === undefined ? "Pending" : String(agent.exitCode)}
                   />
                   <Detail label="Callback" value={agent.callbackStatus || "pending"} />
+                  {agent.durationMs !== undefined ? (
+                    <Detail
+                      label="Duration"
+                      value={`${(agent.durationMs / 1000).toFixed(1)}s`}
+                    />
+                  ) : null}
+                  {agent.creditsUsed !== undefined ? (
+                    <Detail
+                      label="Credits Used"
+                      value={`${agent.creditsUsed} credit(s)`}
+                    />
+                  ) : null}
                 </div>
                 <div className="mt-4 rounded-[1.25rem] border border-white/[0.08] bg-black/25 p-4">
                   <div className="text-xs uppercase tracking-[0.22em] text-[var(--muted)]">

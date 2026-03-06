@@ -19,6 +19,7 @@ export interface AgentStepExecutionResult {
   stdout: string;
   stderr: string;
   exitCode: number | null;
+  durationMs: number;
   artifact: OrderArtifact;
 }
 
@@ -118,12 +119,14 @@ export async function runAgentStepOnModal(
   });
 
   try {
+    const startMs = Date.now();
     const process = await sandbox.exec(command, {
       timeoutMs: config.modal.timeoutSecs * 1000
     });
     const stdout = await process.stdout.readText();
     const stderr = await process.stderr.readText();
     const exitCode = await process.wait();
+    const durationMs = Date.now() - startMs;
     const artifactName = `${input.role}-${input.stepId}.txt`;
     const artifactPath = resolve(
       "data",
@@ -169,6 +172,7 @@ export async function runAgentStepOnModal(
       stdout,
       stderr,
       exitCode,
+      durationMs,
       artifact: {
         name: artifactName,
         path: artifactPath,

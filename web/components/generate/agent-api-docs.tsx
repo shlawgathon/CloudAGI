@@ -5,6 +5,7 @@ const requestExample = `{
   "agentName": "capacity-broker",
   "agentId": "broker-01",
   "jobType": "batch",
+  "gpuHours": 2,
   "repoUrl": "https://github.com/cloudagi/worker",
   "command": ["python", "-m", "agent.expand_compute", "--gpu", "A10G"],
   "objective": "Unlock another GPU lane to finish the run before the deadline.",
@@ -14,11 +15,12 @@ const requestExample = `{
 const responseExample = `{
   "order": {
     "id": "9fb7f8a1-...",
-    "status": "awaiting_payment"
+    "status": "awaiting_payment",
+    "gpuHours": 2
   },
   "payment": {
     "type": "nevermined-x402",
-    "instructions": "Order the plan and call the start endpoint with PAYMENT-SIGNATURE."
+    "instructions": "Order the plan (120 credits = 2h GPU time) and call start with PAYMENT-SIGNATURE."
   },
   "links": {
     "order": "/v1/orders/{id}",

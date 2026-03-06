@@ -259,7 +259,9 @@ async function handleGetOrder(orderId: string): Promise<Response> {
     return json({ error: "Order not found" }, { status: 404 });
   }
 
-  return json({ order });
+  // Strip accessToken from response (internal only)
+  const { accessToken: _token, ...safeOrder } = order;
+  return json({ order: safeOrder, compute: order.compute });
 }
 
 async function handleListOrders(req: Request): Promise<Response> {
@@ -341,6 +343,19 @@ async function handleStartOrder(req: Request, orderId: string): Promise<Response
     );
   }
 
+  // Stash the access token on the order for per-step settlement
+  orderStore.stashAccessToken(orderId, accessToken);
+
+  // Initialize compute summary with requested GPU hours
+  const gpuHours = order.gpuHours || 1;
+  orderStore.update(orderId, {
+    compute: {
+      totalDurationMs: 0,
+      totalCreditsUsed: 0,
+      gpuHoursRequested: gpuHours
+    }
+  });
+
   let nextOrder;
   try {
     nextOrder = await startOrderJob(orderId, getPublicBaseUrl(req));
@@ -359,6 +374,7 @@ async function handleStartOrder(req: Request, orderId: string): Promise<Response
     orderId,
     status: nextOrder.status,
     orchestration: nextOrder.orchestration,
+    compute: nextOrder.compute,
     payment: {
       success: settlement.success,
       transaction: settlement.transaction,
@@ -575,7 +591,8 @@ async function router(req: Request): Promise<Response> {
           command: "string[] | string",
           objective: "string (optional, used as inputNotes fallback)",
           inputNotes: "string (optional if objective is provided)",
-          expectedOutput: "string"
+          expectedOutput: "string",
+          gpuHours: "number (optional, default 1). 1 credit = 1 GPU-minute"
         }
       },
       payment: isNeverminedConfigured()
