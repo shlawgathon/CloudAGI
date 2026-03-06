@@ -40,9 +40,9 @@ function appendOrderLog(orderId: string, message: string): void {
 }
 
 function buildInitialExecution(order: OrderRecord, input: TrinityExecuteStepInput): OrderAgentExecution {
-  const gpu = input.role === "executor" ? config.modal.gpu : "none";
+  const gpu = input.role === "gpu-compute" ? config.modal.gpu : "none";
   const command =
-    input.role === "executor"
+    input.role === "gpu-compute"
       ? order.command
       : ["python", "-c", `${input.role} wrapper for ${input.orderId} / ${input.stepId}`];
 
@@ -168,11 +168,13 @@ export async function executeTrinityStep(input: TrinityExecuteStepInput) {
     const currentOrder = orderStore.get(input.orderId) as OrderRecord;
     if (currentOrder.accessToken && currentOrder.nevermined?.planId) {
       try {
-        const endpoint = `/v1/orders/${input.orderId}/start`;
+        const endpoint =
+          currentOrder.nevermined.settlementEndpoint || `/v1/orders/${input.orderId}/start`;
+        const method = currentOrder.nevermined.settlementMethod || "POST";
         await settleAccessToken(
           currentOrder.accessToken,
           endpoint,
-          "POST",
+          method,
           BigInt(creditsUsed),
           currentOrder.nevermined.planId,
           currentOrder.nevermined.agentId

@@ -8,7 +8,12 @@ export type OrderStatus =
   | "failed"
   | "canceled";
 
-export type AgentRole = "planner" | "executor" | "reviewer" | "packager";
+export type AgentRole =
+  | "gpu-compute"
+  | "ai-research"
+  | "web-scraper"
+  | "code-review"
+  | "smart-search";
 
 export type AgentExecutionStatus =
   | "pending"
@@ -114,6 +119,8 @@ export interface OrderRecord extends CreateOrderInput {
     agentId: string;
     planId: string;
     paymentRail: "crypto" | "fiat";
+    settlementEndpoint?: string;
+    settlementMethod?: "POST" | "GET";
   };
   orchestration?: OrderOrchestration;
   compute?: ComputeSummary;

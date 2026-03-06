@@ -4,7 +4,7 @@
 
 # CloudAGI
 
-CloudAGI is a multi-service AI platform on the Nevermined marketplace. It sells GPU compute, neural search, web scraping, AI code review, and smart search — all paid via the x402 protocol.
+CloudAGI is a multi-service AI platform on the Nevermined marketplace. It exposes a branch orchestrator agent on top of the existing leaf agents for GPU compute, neural search, web scraping, AI code review, and smart search, all paid via the x402 protocol.
 
 ## Architecture
 
@@ -18,6 +18,7 @@ CloudAGI/
 │   │   │   ├── registry.ts
 │   │   │   ├── init.ts
 │   │   │   └── handlers/
+│   │   │       ├── orchestrator.ts  # Branch agent over Trinity + leaf delegation
 │   │   │       ├── gpu-compute.ts   # Modal sandbox execution
 │   │   │       ├── ai-research.ts   # Exa neural search
 │   │   │       ├── web-scraper.ts   # Apify web scraping
@@ -137,7 +138,7 @@ graph TD
 | Layer          | Tracks                                            | Example                                             |
 | -------------- | ------------------------------------------------- | --------------------------------------------------- |
 | **Nevermined** | Credit balance, settlements, payment tx           | "120 credits minted, 13 settled, 107 remaining"     |
-| **CloudAGI**   | Per-step durationMs, creditsUsed, compute summary | "executor: 503000ms → 9 credits; total: 13 credits" |
+| **CloudAGI**   | Per-step durationMs, creditsUsed, compute summary | "gpu-compute: 503000ms → 9 credits; total: 13 credits" |
 | **Modal**      | GPU-seconds billed to our account                 | "4 sandboxes, 188 GPU-seconds total"                |
 
 ## Transaction Flow
@@ -171,7 +172,7 @@ sequenceDiagram
     API->>API: Stash token + init compute summary
     API->>Trinity: Start workflow
 
-    Note over Trinity, Modal: Agent loop (planner → executor → reviewer → packager)
+    Note over Trinity, Modal: Agent loop (orchestrator branching to gpu-compute, ai-research, web-scraper, code-review, smart-search)
     loop Each agent step
         Trinity-->>API: execute-step (role, stepId)
         API->>NVM: getPlanBalance()
@@ -204,7 +205,7 @@ sequenceDiagram
     participant Handler as Service Handler
 
     Buyer->>API: GET /v1/services (browse catalog)
-    API-->>Buyer: 5 services + pricing
+    API-->>Buyer: 6 services + pricing
 
     Buyer->>NVM: Pay (USDC or Stripe)
     NVM-->>Buyer: x402 access token
@@ -377,7 +378,7 @@ sequenceDiagram
       "agents": [
         {
           "stepId": "uuid",
-          "role": "planner | executor | reviewer | packager",
+          "role": "gpu-compute | ai-research | web-scraper | code-review | smart-search",
           "status": "requested | running | succeeded | failed",
           "gpu": "A10G",
           "command": ["..."],
@@ -514,7 +515,13 @@ After setting `NVM_API_KEY` and `NVM_BUILDER_ADDRESS` in `backend/.env`:
 ```bash
 cd backend
 
-# Register all 5 services at once
+# Register the branch orchestrator only
+SERVICE_IDS=orchestrator bun run register:all-services
+
+# Or use the shortcut
+bun run register:orchestrator
+
+# Register all 6 services at once
 bun run register:all-services
 ```
 
@@ -566,7 +573,7 @@ That script uses:
 2. Customer pays via Nevermined (USDC or Stripe) — receives `hours × 60` credits
 3. Customer calls `POST /v1/orders/:id/start` with `PAYMENT-SIGNATURE`
 4. CloudAGI verifies + settles 1 entry credit, stashes token for per-step settlement
-5. Trinity orchestrates agent steps (planner → executor → reviewer → packager)
+5. Trinity orchestrates agent steps through the branch graph (orchestrator → gpu-compute / ai-research / web-scraper / code-review / smart-search)
 6. Each step: balance check → Modal sandbox → `ceil(durationMs/60000)` credits settled
 7. Logs + artifacts + compute breakdown available at order endpoints
 
@@ -665,7 +672,8 @@ cd web && bun run typecheck && bun run build
 | ------------------------------- | ------------ | --------------------------------------- |
 | `bun run dev`                   | `backend/`   | Start backend dev server (port 3000)    |
 | `bun run typecheck`             | `backend/`   | TypeScript check                        |
-| `bun run register:all-services` | `backend/`   | Register all 5 services on Nevermined   |
+| `bun run register:orchestrator` | `backend/`   | Register only the branch orchestrator   |
+| `bun run register:all-services` | `backend/`   | Register all 6 services on Nevermined   |
 | `bun run register:nevermined`   | `backend/`   | Register single legacy agent            |
 | `bun run deploy:trinity`        | `backend/`   | Deploy Trinity system                   |
 | `bun run buy:marketplace`       | `backend/`   | Discover + buy from marketplace sellers |

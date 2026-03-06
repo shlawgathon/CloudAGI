@@ -440,7 +440,7 @@ async function handleInternalExecuteStep(req: Request): Promise<Response> {
     orderId: string;
     runId: string;
     stepId: string;
-    role: "planner" | "executor" | "reviewer" | "packager";
+    role: "gpu-compute" | "ai-research" | "web-scraper" | "code-review" | "smart-search";
   }>(req);
 
   const execution = await executeTrinityStep(body);
@@ -459,7 +459,7 @@ async function handleInternalStepCallback(req: Request): Promise<Response> {
     orderId: string;
     runId: string;
     stepId: string;
-    role: "planner" | "executor" | "reviewer" | "packager";
+    role: "gpu-compute" | "ai-research" | "web-scraper" | "code-review" | "smart-search";
     status: "succeeded" | "failed";
     message?: string;
   }>(req);
@@ -554,6 +554,39 @@ async function router(req: Request): Promise<Response> {
           sources: { type: "array", items: { type: "string" }, default: ["exa"] },
         },
       },
+      orchestrator: {
+        type: "object",
+        properties: {
+          mode: {
+            type: "string",
+            enum: ["orchestrate", "delegate"],
+            default: "orchestrate"
+          },
+          serviceId: {
+            type: "string",
+            description: "Leaf service id to call when mode=delegate"
+          },
+          serviceInput: {
+            type: "object",
+            description: "Payload forwarded to the delegated leaf agent"
+          },
+          agentName: { type: "string" },
+          agentId: { type: "string" },
+          contact: { type: "string" },
+          jobType: { type: "string", enum: ["inference", "eval", "batch", "custom"] },
+          repoUrl: { type: "string" },
+          command: {
+            oneOf: [
+              { type: "string" },
+              { type: "array", items: { type: "string" } }
+            ]
+          },
+          objective: { type: "string" },
+          inputNotes: { type: "string" },
+          expectedOutput: { type: "string" },
+          gpuHours: { type: "number", default: 1 }
+        }
+      }
     };
 
     const services = getAllServices().map((s) => {
@@ -573,7 +606,7 @@ async function router(req: Request): Promise<Response> {
       author: "CloudAGI",
       version: config.version,
       description:
-        "CloudAGI is a multi-service AI cloud platform offering GPU compute, neural search, web scraping, AI code review, and smart search. All services are paid via Nevermined x402 protocol. Built for agent-to-agent commerce.",
+        "CloudAGI is a multi-service AI cloud platform with a branch orchestrator plus leaf agents for GPU compute, neural search, web scraping, AI code review, and smart search. All services are paid via Nevermined x402 protocol.",
       url: baseUrl,
       services,
       endpoints: {
@@ -730,7 +763,13 @@ async function router(req: Request): Promise<Response> {
     }
 
     const body = await parseJson<Record<string, unknown>>(req);
-    const result = await svc.handler(body);
+    const result = await svc.handler(body, {
+      accessToken: getAccessToken(req) || undefined,
+      baseUrl: getPublicBaseUrl(req),
+      endpoint: `/v1/services/${serviceId}/execute`,
+      method: "POST",
+      service: svc
+    });
     return json(result, { status: result.success ? 200 : 422 });
   }
 

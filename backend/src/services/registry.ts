@@ -6,6 +6,14 @@ export interface ServiceResult {
   error?: string;
 }
 
+export interface ServiceExecutionContext {
+  accessToken?: string;
+  baseUrl: string;
+  endpoint: string;
+  method: string;
+  service: RegisteredService;
+}
+
 export interface ServiceDefinition {
   id: string;
   name: string;
@@ -15,7 +23,10 @@ export interface ServiceDefinition {
   priceAmount: string;
   priceCurrency: string;
   tags: string[];
-  handler: (body: Record<string, unknown>) => Promise<ServiceResult>;
+  handler: (
+    body: Record<string, unknown>,
+    context: ServiceExecutionContext
+  ) => Promise<ServiceResult>;
 }
 
 export interface RegisteredService extends ServiceDefinition {

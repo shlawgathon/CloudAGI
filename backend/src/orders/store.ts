@@ -21,7 +21,13 @@ class OrderStore {
   create(
     input: CreateOrderInput,
     priceLabel: string,
-    nevermined?: { agentId: string; planId: string; paymentRail: "crypto" | "fiat" }
+    nevermined?: {
+      agentId: string;
+      planId: string;
+      paymentRail: "crypto" | "fiat";
+      settlementEndpoint?: string;
+      settlementMethod?: "POST" | "GET";
+    }
   ): OrderRecord {
     const now = new Date().toISOString();
     const order: OrderRecord = {

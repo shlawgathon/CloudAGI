@@ -18,6 +18,14 @@ function toPriceUnits(amount: string, rail: string): bigint {
   return BigInt(Math.round(num * 1_000_000).toString());
 }
 
+function requestedServiceIds(): string[] {
+  const raw = process.env.SERVICE_IDS || "";
+  return raw
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
 async function registerOneService(
   payments: Payments,
   service: ServiceDefinition
@@ -38,6 +46,7 @@ async function registerOneService(
         );
 
   const integrationInstructions: Record<string, string> = {
+    orchestrator: `POST ${config.appBaseUrl}/v1/services/orchestrator/execute with JSON body {"agentName":"Your Agent","command":["python3","-c","print('hello')"],"inputNotes":"What should happen","expectedOutput":"What to return"} for a Trinity-managed run, or {"mode":"delegate","serviceId":"gpu-compute","serviceInput":{"command":["python3","-c","print('hello')"]}} to route through a leaf agent. Requires x402 PAYMENT-SIGNATURE header.`,
     "gpu-compute": `POST ${config.appBaseUrl}/v1/services/gpu-compute/execute with JSON body {"command": ["python3", "-c", "print('hello')"], "gpu": "T4"}. Requires x402 PAYMENT-SIGNATURE header.`,
     "ai-research": `POST ${config.appBaseUrl}/v1/services/ai-research/execute with JSON body {"query": "your search query", "numResults": 5}. Requires x402 PAYMENT-SIGNATURE header.`,
     "web-scraper": `POST ${config.appBaseUrl}/v1/services/web-scraper/execute with JSON body {"url": "https://example.com"}. Requires x402 PAYMENT-SIGNATURE header.`,
@@ -46,6 +55,7 @@ async function registerOneService(
   };
 
   const apiDescriptions: Record<string, string> = {
+    orchestrator: "Central branch agent for CloudAGI. Mode=orchestrate starts a Trinity-managed run for larger work. Mode=delegate routes a request to one of the leaf marketplace agents such as gpu-compute, ai-research, web-scraper, code-review, or smart-search.",
     "gpu-compute": "Execute commands in serverless GPU sandboxes. Input: {command: string[], gpu?: 'T4'|'A10G'|'A100'|'H100', image?: string, timeoutSecs?: number}. Output: {exitCode, stdout, stderr, sandboxId}.",
     "ai-research": "Neural semantic search via Exa. Input: {query: string, numResults?: number, type?: 'auto'|'neural'|'keyword'}. Output: Exa search results with text, highlights, and metadata.",
     "web-scraper": "Extract structured data from websites. Input: {url: string, maxPages?: number} or {actorId: string, input: object}. Output: Array of structured page data.",
@@ -103,7 +113,23 @@ async function main() {
     environment: config.nevermined.environment as never,
   });
 
-  const services = getAllServices();
+  const requestedIds = requestedServiceIds();
+  const services = getAllServices()
+    .filter((service) => requestedIds.length === 0 || requestedIds.includes(service.id))
+    .sort((a, b) => {
+    if (a.id === "orchestrator") return -1;
+    if (b.id === "orchestrator") return 1;
+    return a.name.localeCompare(b.name);
+  });
+
+  if (services.length === 0) {
+    throw new Error(
+      requestedIds.length === 0
+        ? "No services registered locally"
+        : `No matching services found for SERVICE_IDS=${requestedIds.join(",")}`
+    );
+  }
+
   console.log(`Registering ${services.length} services on Nevermined...\n`);
 
   const results: Array<{ serviceId: string; agentId: string; planId: string }> = [];
@@ -127,10 +153,11 @@ async function main() {
     console.log(`${envPrefix}_PLAN_ID=${r.planId}`);
   }
 
-  if (results.length > 0) {
-    console.log(`\n# Primary agent (first service):`);
-    console.log(`NVM_AGENT_ID=${results[0].agentId}`);
-    console.log(`NVM_PLAN_ID=${results[0].planId}`);
+  const primary = results.find((result) => result.serviceId === "orchestrator") || results[0];
+  if (primary) {
+    console.log(`\n# Primary agent (branch orchestrator if present):`);
+    console.log(`NVM_AGENT_ID=${primary.agentId}`);
+    console.log(`NVM_PLAN_ID=${primary.planId}`);
   }
 
   console.log(`\nRegistered ${results.length}/${services.length} services.`);

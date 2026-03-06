@@ -11,25 +11,31 @@ agents:
       expose: true
       consume: true
 
-  planner:
+  gpu-compute:
     template: github:abilityai/agent-ruby
     folders:
       expose: true
       consume: true
 
-  executor:
+  ai-research:
     template: github:abilityai/agent-ruby
     folders:
       expose: true
       consume: true
 
-  reviewer:
+  web-scraper:
     template: github:abilityai/agent-ruby
     folders:
       expose: true
       consume: true
 
-  packager:
+  code-review:
+    template: github:abilityai/agent-ruby
+    folders:
+      expose: true
+      consume: true
+
+  smart-search:
     template: github:abilityai/agent-ruby
     folders:
       expose: true

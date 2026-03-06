@@ -33,73 +33,97 @@ function getModalClient(): ModalClient {
   return modalClient;
 }
 
-function buildPlannerScript(order: OrderRecord, stepId: string): string {
+function buildAiResearchScript(order: OrderRecord, stepId: string): string {
   const payload = JSON.stringify({
     orderId: order.id,
     stepId,
     jobType: order.jobType,
     repoUrl: order.repoUrl,
+    inputNotes: order.inputNotes,
     expectedOutput: order.expectedOutput
   });
 
   return [
     "import json",
     `payload = json.loads(${JSON.stringify(payload)})`,
-    "print('planner: generated execution plan')",
+    "print('ai-research: prepared research brief')",
     "print(json.dumps(payload, indent=2))"
   ].join("\n");
 }
 
-function buildReviewerScript(order: OrderRecord, stepId: string): string {
+function buildWebScraperScript(order: OrderRecord, stepId: string): string {
   const payload = JSON.stringify({
     orderId: order.id,
     stepId,
-    expectedOutput: order.expectedOutput,
-    inputNotes: order.inputNotes
+    repoUrl: order.repoUrl,
+    inputNotes: order.inputNotes,
+    expectedOutput: order.expectedOutput
   });
 
   return [
     "import json",
     `payload = json.loads(${JSON.stringify(payload)})`,
-    "print('reviewer: validated executor output against requested outcome')",
+    "print('web-scraper: prepared scraping task')",
     "print(json.dumps(payload, indent=2))"
   ].join("\n");
 }
 
-function buildPackagerScript(order: OrderRecord, stepId: string): string {
+function buildCodeReviewScript(order: OrderRecord, stepId: string): string {
+  const payload = JSON.stringify({
+    orderId: order.id,
+    stepId,
+    repoUrl: order.repoUrl,
+    inputNotes: order.inputNotes,
+    expectedOutput: order.expectedOutput
+  });
+
+  return [
+    "import json",
+    `payload = json.loads(${JSON.stringify(payload)})`,
+    "print('code-review: prepared review scope')",
+    "print(json.dumps(payload, indent=2))"
+  ].join("\n");
+}
+
+function buildSmartSearchScript(order: OrderRecord, stepId: string): string {
   const payload = JSON.stringify({
     orderId: order.id,
     stepId,
     customerName: order.customerName,
+    inputNotes: order.inputNotes,
     expectedOutput: order.expectedOutput
   });
 
   return [
     "import json",
     `payload = json.loads(${JSON.stringify(payload)})`,
-    "print('packager: assembled delivery package metadata')",
+    "print('smart-search: prepared search plan')",
     "print(json.dumps(payload, indent=2))"
   ].join("\n");
 }
 
 function getAgentCommand(order: OrderRecord, role: AgentRole, stepId: string): string[] {
-  if (role === "executor") {
+  if (role === "gpu-compute") {
     return order.command;
   }
 
-  if (role === "planner") {
-    return ["python", "-c", buildPlannerScript(order, stepId)];
+  if (role === "ai-research") {
+    return ["python", "-c", buildAiResearchScript(order, stepId)];
   }
 
-  if (role === "reviewer") {
-    return ["python", "-c", buildReviewerScript(order, stepId)];
+  if (role === "web-scraper") {
+    return ["python", "-c", buildWebScraperScript(order, stepId)];
   }
 
-  return ["python", "-c", buildPackagerScript(order, stepId)];
+  if (role === "code-review") {
+    return ["python", "-c", buildCodeReviewScript(order, stepId)];
+  }
+
+  return ["python", "-c", buildSmartSearchScript(order, stepId)];
 }
 
 function getAgentGpu(role: AgentRole): string {
-  return role === "executor" ? config.modal.gpu : "none";
+  return role === "gpu-compute" ? config.modal.gpu : "none";
 }
 
 export async function runAgentStepOnModal(
