@@ -1,12 +1,17 @@
 # CloudAGI
 
-CloudAGI is a direct AI orchestration service. A customer creates an order, pays for access through Nevermined with either a crypto or fiat-priced plan, CloudAGI triggers a fixed Trinity workflow, executes each agent step in Modal sandboxes, and returns logs plus artifacts.
+CloudAGI is organized as two separate apps:
+
+- `backend/` — Bun API, Nevermined payment gating, Trinity orchestration adapter, Modal execution
+- `web/` — Next.js frontend
+
+The backend is a direct AI orchestration service. A customer creates an order, pays for access through Nevermined with either a crypto or fiat-priced plan, CloudAGI triggers a fixed Trinity workflow, executes each agent step in Modal sandboxes, and returns logs plus artifacts.
 
 This repo implements the first transaction path. It is intentionally not a marketplace, not a provider network, and not a multi-tenant control plane.
 
 ## Stack
 
-- Bun + TypeScript backend
+- Bun + TypeScript backend in [`backend/`](./backend)
 - Trinity orchestration triggered over HTTP/API
 - Modal JavaScript SDK for per-agent sandbox execution
 - Nevermined Payments SDK for crypto or Stripe-backed fiat plans plus x402 payment gating
@@ -30,11 +35,13 @@ This repo implements the first transaction path. It is intentionally not a marke
 
 ```text
 CloudAGI/
-├── src/          # Bun API, Trinity adapter, Modal execution, Nevermined integration
-├── web/          # Next.js frontend
-├── docs/         # Product / implementation notes
-├── .env          # Backend runtime config
-└── web/.env.local  # Frontend runtime config
+├── backend/      # Bun API app
+│   ├── src/
+│   ├── scripts/
+│   ├── workflows/
+│   └── .env
+├── web/          # Next.js frontend app
+└── docs/         # Product / implementation notes
 ```
 
 ## Run Locally
@@ -44,14 +51,16 @@ You need two processes: backend and frontend.
 Before starting, clear any stale local listeners and old Cloudflare tunnels:
 
 ```bash
+cd backend
 bun run dev:clear
 ```
 
 ### 1. Backend
 
-From the repo root:
+From `backend/`:
 
 ```bash
+cd backend
 bun install
 bun run dev
 ```
@@ -85,6 +94,7 @@ Frontend URL:
 If you need a public backend URL for Nevermined:
 
 ```bash
+cd backend
 bun run dev:tunnel
 ```
 
@@ -100,7 +110,7 @@ Important:
 
 ### Backend env
 
-The Bun API reads config from [`.env`](./.env).
+The Bun API reads config from [`backend/.env`](./backend/.env).
 
 Important backend variables:
 
@@ -160,7 +170,7 @@ Notes:
 
 CloudAGI uses the local Modal profile if one exists.
 
-On this machine, Modal is already configured through `~/.modal.toml`, so local development does not need `MODAL_TOKEN_ID` or `MODAL_TOKEN_SECRET` in `.env`.
+On this machine, Modal is already configured through `~/.modal.toml`, so local development does not need `MODAL_TOKEN_ID` or `MODAL_TOKEN_SECRET` in `backend/.env`.
 
 You only need explicit Modal env vars when running on a machine that does not already have a Modal profile configured.
 
@@ -179,6 +189,7 @@ then the app still boots, but `POST /v1/orders/:id/start` returns `503`.
 To register the CloudAGI plan after filling the Nevermined values:
 
 ```bash
+cd backend
 bun run register:nevermined
 ```
 
@@ -187,7 +198,7 @@ That script uses:
 - the configured payment rail in `NVM_PAYMENT_RAIL`
 - the configured USDC token address in `NVM_USDC_ADDRESS` when using crypto
 - the receiving address in `NVM_BUILDER_ADDRESS`
-- the current CloudAGI offer name, display price, and raw registration units from `.env`
+- the current CloudAGI offer name, display price, and raw registration units from `backend/.env`
 
 ## Payment Flow
 
@@ -216,6 +227,7 @@ That script uses:
 Backend:
 
 ```bash
+cd backend
 bun run typecheck
 ```
 
@@ -229,7 +241,7 @@ bun run build
 
 ## Production Deployment
 
-A `.env.production` template is included with all required variables for VPS deployment.
+A [`backend/.env.production`](./backend/.env.production) template is included with all required variables for VPS deployment.
 
 ### Frontend (Vercel)
 
@@ -250,6 +262,7 @@ Configure `cloudagi.org` as a custom domain in Vercel, then add a CNAME record i
 ### Backend (Docker on VPS)
 
 ```bash
+cd backend
 docker build -t cloudagi .
 docker run --env-file .env.production -p 3000:3000 cloudagi
 ```
@@ -262,13 +275,13 @@ Cloudflare proxy handles SSL termination — the backend only needs to expose po
 
 ## Important Files
 
-- [`.env`](./.env)
-- [`.env.production`](./.env.production) — production env template for VPS
+- [`backend/.env`](./backend/.env)
+- [`backend/.env.production`](./backend/.env.production)
 - [`web/.env.example`](./web/.env.example)
-- [`src/index.ts`](./src/index.ts)
-- [`src/jobs/modal.ts`](./src/jobs/modal.ts)
-- [`src/payments/nevermined.ts`](./src/payments/nevermined.ts)
-- [`src/scripts/register-nevermined.ts`](./src/scripts/register-nevermined.ts)
+- [`backend/src/index.ts`](./backend/src/index.ts)
+- [`backend/src/jobs/modal.ts`](./backend/src/jobs/modal.ts)
+- [`backend/src/payments/nevermined.ts`](./backend/src/payments/nevermined.ts)
+- [`backend/src/scripts/register-nevermined.ts`](./backend/src/scripts/register-nevermined.ts)
 - [`web/app/page.tsx`](./web/app/page.tsx)
 - [`web/app/orders/[id]/page.tsx`](./web/app/orders/[id]/page.tsx)
 - [`docs/plans/2026-03-06-cloudagi-first-transaction.md`](./docs/plans/2026-03-06-cloudagi-first-transaction.md)
