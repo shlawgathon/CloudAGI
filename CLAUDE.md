@@ -16,7 +16,10 @@
 
 ### How to Activate
 
-Say: "Activate Backend Architect mode" or "Use the Rapid Prototyper agent"
+**Claude Code:** Say "Activate Backend Architect mode" or "Use the Rapid Prototyper agent"
+**Codex / Other agents:** Read the agent file first, e.g. "Read .claude/agents/engineering-rapid-prototyper.md and follow its instructions"
+
+See `agents.md` at project root for the full cross-tool usage guide.
 
 ## Stack
 
