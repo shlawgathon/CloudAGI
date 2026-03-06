@@ -7,7 +7,7 @@ import {
   startOrderJob
 } from "./jobs/runner";
 import { orderStore } from "./orders/store";
-import type { CreateOrderInput } from "./orders/types";
+import type { CreateAgentOrderInput, CreateOrderInput } from "./orders/types";
 import { isTrinityConfigured } from "./orchestration/trinity";
 import {
   buildPaymentRequirement,
@@ -48,6 +48,27 @@ async function parseJson<T>(req: Request): Promise<T> {
   return (await req.json()) as T;
 }
 
+function splitCommand(value: string): string[] {
+  return (
+    value
+      .match(/(?:[^\s"]+|"[^"]*")+/g)
+      ?.map((part) => part.replace(/^"|"$/g, ""))
+      .filter(Boolean) ?? []
+  );
+}
+
+function normalizeCommand(command?: string[] | string): string[] {
+  if (Array.isArray(command)) {
+    return command.map((part) => part.trim()).filter(Boolean);
+  }
+
+  if (typeof command === "string") {
+    return splitCommand(command.trim());
+  }
+
+  return [];
+}
+
 function validateOrderInput(body: Partial<CreateOrderInput>): string | null {
   if (!body.customerName?.trim()) return "customerName is required";
   if (!body.contact?.trim()) return "contact is required";
@@ -58,6 +79,40 @@ function validateOrderInput(body: Partial<CreateOrderInput>): string | null {
   if (!body.expectedOutput?.trim()) return "expectedOutput is required";
   if (!body.inputNotes?.trim()) return "inputNotes is required";
   return null;
+}
+
+function mapAgentOrderInput(body: Partial<CreateAgentOrderInput>): CreateOrderInput | string {
+  const agentName = body.agentName?.trim();
+  const agentId = body.agentId?.trim();
+  const contact = body.contact?.trim();
+  const command = normalizeCommand(body.command);
+  const inputNotes = body.inputNotes?.trim() || body.objective?.trim();
+
+  if (!agentName && !agentId) {
+    return "agentName or agentId is required";
+  }
+
+  if (command.length === 0) {
+    return "command must be a non-empty string or string array";
+  }
+
+  if (!inputNotes) {
+    return "inputNotes or objective is required";
+  }
+
+  if (!body.expectedOutput?.trim()) {
+    return "expectedOutput is required";
+  }
+
+  return {
+    customerName: agentName || agentId || "Autonomous agent",
+    contact: contact || (agentId ? `agent:${agentId}` : `agent:${agentName}`),
+    jobType: body.jobType || "custom",
+    repoUrl: body.repoUrl?.trim() || undefined,
+    command,
+    inputNotes,
+    expectedOutput: body.expectedOutput.trim()
+  };
 }
 
 function getAccessToken(req: Request): string | null {
@@ -108,6 +163,39 @@ async function paymentRequiredResponse(
   );
 }
 
+function buildOrderCreationResponse(req: Request, orderId: string) {
+  const order = orderStore.get(orderId);
+  if (!order) {
+    throw new Error(`Order ${orderId} not found`);
+  }
+
+  const baseUrl = getPublicBaseUrl(req);
+
+  return {
+    order,
+    payment: isNeverminedConfigured()
+      ? {
+          type: "nevermined-x402",
+          ...getPlanMetadata(),
+          instructions:
+            config.nevermined.paymentRail === "fiat"
+              ? "Order the plan in Nevermined with Stripe-backed fiat checkout, generate an x402 access token, then call POST /v1/orders/:id/start with PAYMENT-SIGNATURE."
+              : "Order the plan in Nevermined with crypto, generate an x402 access token, then call POST /v1/orders/:id/start with PAYMENT-SIGNATURE."
+        }
+      : {
+          type: "not-configured",
+          instructions:
+            "Nevermined is not configured yet. Set NVM_API_KEY, NVM_AGENT_ID, and NVM_PLAN_ID."
+        },
+    links: {
+      order: `${baseUrl}/v1/orders/${order.id}`,
+      start: `${baseUrl}/v1/orders/${order.id}/start`,
+      logs: `${baseUrl}/v1/orders/${order.id}/logs`,
+      artifacts: `${baseUrl}/v1/orders/${order.id}/artifacts`
+    }
+  };
+}
+
 async function handleCreateOrder(req: Request): Promise<Response> {
   const body = await parseJson<Partial<CreateOrderInput>>(req);
   const validationError = validateOrderInput(body);
@@ -121,23 +209,35 @@ async function handleCreateOrder(req: Request): Promise<Response> {
     isNeverminedConfigured() ? getPlanMetadata() : undefined
   );
 
+  return json(buildOrderCreationResponse(req, order.id), { status: 201 });
+}
+
+async function handleCreateAgentOrder(req: Request): Promise<Response> {
+  const body = await parseJson<Partial<CreateAgentOrderInput>>(req);
+  const normalized = mapAgentOrderInput(body);
+
+  if (typeof normalized === "string") {
+    return json({ error: normalized }, { status: 400 });
+  }
+
+  const validationError = validateOrderInput(normalized);
+  if (validationError) {
+    return json({ error: validationError }, { status: 400 });
+  }
+
+  const order = orderStore.create(
+    normalized,
+    config.offerPriceLabel,
+    isNeverminedConfigured() ? getPlanMetadata() : undefined
+  );
+
   return json(
     {
-      order,
-      payment: isNeverminedConfigured()
-        ? {
-            type: "nevermined-x402",
-            ...getPlanMetadata(),
-            instructions:
-              config.nevermined.paymentRail === "fiat"
-                ? "Order the plan in Nevermined with Stripe-backed fiat checkout, generate an x402 access token, then call POST /v1/orders/:id/start with PAYMENT-SIGNATURE."
-                : "Order the plan in Nevermined with crypto, generate an x402 access token, then call POST /v1/orders/:id/start with PAYMENT-SIGNATURE."
-          }
-        : {
-            type: "not-configured",
-            instructions:
-              "Nevermined is not configured yet. Set NVM_API_KEY, NVM_AGENT_ID, and NVM_PLAN_ID."
-          }
+      ...buildOrderCreationResponse(req, order.id),
+      requestedBy: {
+        agentName: body.agentName?.trim() || null,
+        agentId: body.agentId?.trim() || null
+      }
     },
     { status: 201 }
   );
@@ -384,10 +484,24 @@ async function router(req: Request): Promise<Response> {
         "CloudAGI is a paid AI orchestration service that verifies Nevermined payments, runs a fixed Trinity workflow, and executes each agent step in Modal sandboxes.",
       endpoints: {
         createOrder: `${baseUrl}/v1/orders`,
+        createAgentOrder: `${baseUrl}/v1/agent/orders`,
         startOrder: `${baseUrl}/v1/orders/{orderId}/start`,
         getOrder: `${baseUrl}/v1/orders/{orderId}`,
         getLogs: `${baseUrl}/v1/orders/{orderId}/logs`,
         getArtifacts: `${baseUrl}/v1/orders/{orderId}/artifacts`
+      },
+      schemas: {
+        createAgentOrder: {
+          agentName: "string (optional if agentId is present)",
+          agentId: "string (optional if agentName is present)",
+          contact: "string (optional)",
+          jobType: "inference | eval | batch | custom",
+          repoUrl: "string (optional)",
+          command: "string[] | string",
+          objective: "string (optional, used as inputNotes fallback)",
+          inputNotes: "string (optional if objective is provided)",
+          expectedOutput: "string"
+        }
       },
       payment: isNeverminedConfigured()
         ? {
@@ -412,6 +526,10 @@ async function router(req: Request): Promise<Response> {
 
   if (path === "/v1/orders" && req.method === "POST") {
     return handleCreateOrder(req);
+  }
+
+  if (path === "/v1/agent/orders" && req.method === "POST") {
+    return handleCreateAgentOrder(req);
   }
 
   if (path === "/v1/orders" && req.method === "GET") {

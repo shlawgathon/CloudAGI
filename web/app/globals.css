@@ -1,17 +1,49 @@
 @import "tailwindcss";
 
 :root {
-  --bg: #07111c;
-  --bg-soft: #101d2a;
-  --panel: rgba(10, 23, 36, 0.76);
-  --panel-strong: rgba(8, 17, 28, 0.96);
-  --border: rgba(151, 178, 204, 0.18);
-  --text: #f5f3ea;
-  --muted: #9bb2c8;
-  --accent: #f26f3c;
-  --accent-2: #f3c38b;
+  --bg: #050816;
+  --bg-soft: #0a1220;
+  --panel: rgba(9, 17, 31, 0.76);
+  --panel-soft: rgba(18, 29, 48, 0.86);
+  --panel-strong: rgba(4, 8, 18, 0.96);
+  --panel-muted: rgba(13, 21, 35, 0.92);
+  --border: rgba(132, 178, 219, 0.16);
+  --text: #f7f8fb;
+  --muted: #9cafc6;
+  --accent: #65ffe1;
+  --accent-soft: #7ef7da;
+  --accent-2: #ffb273;
+  --accent-3: #32b7ff;
   --success: #72d0a6;
   --shadow: 0 30px 80px rgba(0, 0, 0, 0.38);
+}
+
+:root,
+html,
+body {
+  background-color: var(--bg);
+}
+
+@theme inline {
+  --color-background: var(--bg);
+  --color-foreground: var(--text);
+  --color-card: var(--panel);
+  --color-card-foreground: var(--text);
+  --color-popover: var(--panel-strong);
+  --color-popover-foreground: var(--text);
+  --color-primary: var(--accent);
+  --color-primary-foreground: var(--bg);
+  --color-secondary: var(--panel-soft);
+  --color-secondary-foreground: var(--text);
+  --color-muted: var(--panel-muted);
+  --color-muted-foreground: var(--muted);
+  --color-accent: var(--accent-2);
+  --color-accent-foreground: var(--bg);
+  --color-border: var(--border);
+  --color-input: var(--border);
+  --color-ring: var(--accent);
+  --color-destructive: #ff6b74;
+  --color-destructive-foreground: #fff6f2;
 }
 
 * {
@@ -20,17 +52,60 @@
 
 html {
   scroll-behavior: smooth;
+  min-height: 100%;
+}
+
+html,
+body {
+  max-width: 100%;
+  min-height: 100%;
+  overflow-x: hidden;
 }
 
 body {
   margin: 0;
-  min-height: 100vh;
+  min-height: 100dvh;
   background:
-    radial-gradient(circle at top left, rgba(242, 111, 60, 0.2), transparent 34%),
-    radial-gradient(circle at top right, rgba(243, 195, 139, 0.12), transparent 28%),
-    linear-gradient(180deg, #08111d 0%, #0d1724 46%, #081019 100%);
+    radial-gradient(circle at 12% 12%, rgba(101, 255, 225, 0.16), transparent 22%),
+    radial-gradient(circle at 88% 8%, rgba(255, 178, 115, 0.16), transparent 22%),
+    radial-gradient(circle at 50% 110%, rgba(50, 183, 255, 0.12), transparent 34%),
+    linear-gradient(180deg, #050816 0%, #070c17 42%, #05070f 100%);
   color: var(--text);
-  font-family: var(--font-sans, "Inter"), system-ui, sans-serif;
+  font-family: var(--font-sans, "Space Grotesk"), system-ui, sans-serif;
+  position: relative;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 96px 96px;
+  mask-image: linear-gradient(180deg, rgba(255, 255, 255, 0.45), transparent 78%);
+  opacity: 0.18;
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at center, rgba(255, 255, 255, 0.08) 0, transparent 55%),
+    radial-gradient(circle at 20% 20%, rgba(126, 247, 218, 0.08) 0, transparent 24%),
+    radial-gradient(circle at 80% 20%, rgba(255, 178, 115, 0.08) 0, transparent 24%);
+  mix-blend-mode: screen;
+  opacity: 0.42;
+}
+
+@supports (-webkit-touch-callout: none) {
+  html,
+  body {
+    min-height: -webkit-fill-available;
+  }
 }
 
 a {
@@ -38,6 +113,10 @@ a {
   text-decoration: none;
 }
 
+img {
+  display: block;
+}
+
 ::selection {
-  background: rgba(242, 111, 60, 0.25);
+  background: rgba(101, 255, 225, 0.2);
 }

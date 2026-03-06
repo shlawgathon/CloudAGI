@@ -37,12 +37,14 @@ export default async function OrderPage({
           </div>
           <div className="flex flex-col gap-3 lg:min-w-[22rem]">
             <StatusSearch initialOrderId={id} />
-            <Link
-              href="/"
-              className="text-center text-sm text-[var(--muted)] transition hover:text-white"
-            >
-              Back to order form
-            </Link>
+            <div className="flex items-center justify-center gap-4 text-sm text-[var(--muted)]">
+              <Link href="/" className="transition hover:text-white">
+                Back home
+              </Link>
+              <Link href="/generate" className="transition hover:text-white">
+                Create another order
+              </Link>
+            </div>
           </div>
         </header>
 

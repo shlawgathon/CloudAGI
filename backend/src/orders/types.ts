@@ -35,6 +35,18 @@ export interface CreateOrderInput {
   expectedOutput: string;
 }
 
+export interface CreateAgentOrderInput {
+  agentName?: string;
+  agentId?: string;
+  contact?: string;
+  jobType?: JobType;
+  repoUrl?: string;
+  command?: string[] | string;
+  objective?: string;
+  inputNotes?: string;
+  expectedOutput?: string;
+}
+
 export interface OrderArtifact {
   name: string;
   path: string;
