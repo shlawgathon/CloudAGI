@@ -22,7 +22,7 @@ export default async function OrderPage({
 
     return (
       <main className="mx-auto min-h-screen w-full max-w-7xl px-5 pb-16 pt-6 sm:px-8 lg:px-10">
-        <header className="mb-8 flex flex-col gap-5 rounded-[2rem] border border-white/10 bg-[var(--panel)] p-6 shadow-[var(--shadow)] lg:flex-row lg:items-center lg:justify-between">
+        <header className="card-surface mb-8 flex flex-col gap-5 rounded-[2rem] p-6 shadow-[var(--shadow)] lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="mb-2 text-xs uppercase tracking-[0.35em] text-[var(--accent-2)]">
               CloudAGI Status

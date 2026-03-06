@@ -37,8 +37,12 @@ export function OrderForm() {
           <h2 className="font-[var(--font-display)] text-3xl text-white">
             Start with the job, not the infra.
           </h2>
+          <p className="mt-2 max-w-xl text-sm leading-7 text-[var(--muted)]">
+            Describe one concrete workload and expected result so CloudAGI can run and deliver it
+            fast.
+          </p>
         </div>
-        <div className="rounded-full border border-[var(--border)] bg-white/5 px-4 py-2 text-sm text-[var(--muted)]">
+        <div className="rounded-full border border-[var(--border)] bg-white/5 px-4 py-2 text-xs tracking-[0.12em] text-[var(--muted)]">
           One offer · 25 USDC · One job credit
         </div>
       </div>
@@ -88,7 +92,7 @@ export function OrderForm() {
           <input
             name="customerName"
             required
-            className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-none ring-0 transition focus:border-[var(--accent)]"
+            className="w-full rounded-2xl border border-white/10 bg-white/14 px-4 py-3 text-white outline-none ring-0 transition focus:border-[var(--accent)]"
           />
         </label>
 
@@ -98,7 +102,7 @@ export function OrderForm() {
             name="contact"
             required
             placeholder="email, Telegram, X handle"
-            className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-none transition focus:border-[var(--accent)]"
+            className="w-full rounded-2xl border border-white/10 bg-white/14 px-4 py-3 text-white outline-none transition focus:border-[var(--accent)]"
           />
         </label>
 
@@ -107,7 +111,7 @@ export function OrderForm() {
           <select
             name="jobType"
             defaultValue="inference"
-            className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-none transition focus:border-[var(--accent)]"
+            className="w-full rounded-2xl border border-white/10 bg-white/14 px-4 py-3 text-white outline-none transition focus:border-[var(--accent)]"
           >
             {jobTypes.map((item) => (
               <option key={item.value} value={item.value}>
@@ -122,7 +126,7 @@ export function OrderForm() {
           <input
             name="repoUrl"
             placeholder="https://github.com/your/repo"
-            className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-none transition focus:border-[var(--accent)]"
+            className="w-full rounded-2xl border border-white/10 bg-white/14 px-4 py-3 text-white outline-none transition focus:border-[var(--accent)]"
           />
         </label>
 
@@ -132,8 +136,11 @@ export function OrderForm() {
             name="command"
             required
             placeholder='python -c "print(\"hello from CloudAGI\")"'
-            className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-none transition focus:border-[var(--accent)]"
+            className="w-full rounded-2xl border border-white/10 bg-white/14 px-4 py-3 text-white outline-none transition focus:border-[var(--accent)]"
           />
+          <span className="block text-xs text-[var(--muted)]">
+            Use one runnable command array target (entrypoint or script call).
+          </span>
         </label>
 
         <label className="space-y-2 md:col-span-2">
@@ -142,7 +149,7 @@ export function OrderForm() {
             name="inputNotes"
             required
             rows={5}
-            className="w-full rounded-[1.5rem] border border-white/10 bg-black/20 px-4 py-3 text-white outline-none transition focus:border-[var(--accent)]"
+            className="w-full rounded-[1.5rem] border border-white/10 bg-white/14 px-4 py-3 text-white outline-none transition focus:border-[var(--accent)]"
           />
         </label>
 
@@ -152,7 +159,7 @@ export function OrderForm() {
             name="expectedOutput"
             required
             rows={4}
-            className="w-full rounded-[1.5rem] border border-white/10 bg-black/20 px-4 py-3 text-white outline-none transition focus:border-[var(--accent)]"
+            className="w-full rounded-[1.5rem] border border-white/10 bg-white/14 px-4 py-3 text-white outline-none transition focus:border-[var(--accent)]"
           />
         </label>
 
@@ -160,7 +167,7 @@ export function OrderForm() {
           <button
             type="submit"
             disabled={isPending}
-            className="rounded-full bg-[var(--accent)] px-6 py-3 font-medium text-white transition hover:bg-[#ff7a45] disabled:cursor-not-allowed disabled:opacity-60"
+            className="accent-gradient rounded-full px-6 py-3 font-semibold text-white shadow-[0_10px_24px_rgba(240,125,73,0.35)] transition disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isPending ? "Creating order..." : "Create order"}
           </button>
@@ -181,14 +188,14 @@ export function OrderForm() {
 
       {result ? (
         <div className="mt-6 grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-          <div className="rounded-[1.75rem] border border-white/10 bg-black/20 p-5">
+          <div className="rounded-[1.75rem] border border-white/10 bg-white/10 p-5">
             <p className="mb-2 text-xs uppercase tracking-[0.28em] text-[var(--accent-2)]">
               Order Created
             </p>
             <div className="space-y-3 text-sm text-[var(--muted)]">
               <div>
                 <span className="text-white">Order ID</span>
-                <div className="mt-1 break-all rounded-xl bg-black/30 px-3 py-2 font-mono text-xs text-white">
+                <div className="mt-1 break-all rounded-xl bg-white/14 px-3 py-2 font-mono text-xs text-white">
                   {result.order.id}
                 </div>
               </div>
@@ -211,7 +218,7 @@ export function OrderForm() {
             </div>
           </div>
 
-          <div className="rounded-[1.75rem] border border-white/10 bg-black/20 p-5">
+          <div className="rounded-[1.75rem] border border-white/10 bg-white/10 p-5">
             <p className="mb-2 text-xs uppercase tracking-[0.28em] text-[var(--accent-2)]">
               Payment
             </p>

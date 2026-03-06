@@ -16,7 +16,7 @@ function statusTone(status: Order["status"]) {
 
 function Detail({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="rounded-[1.35rem] border border-white/8 bg-black/20 p-4">
+    <div className="rounded-[1.35rem] border border-white/8 bg-white/12 p-4">
       <div className="text-xs uppercase tracking-[0.22em] text-[var(--muted)]">{label}</div>
       <div className="mt-2 text-sm text-white">{value}</div>
     </div>
@@ -34,7 +34,7 @@ export function OrderStatus({
 }) {
   return (
     <div className="space-y-6">
-      <div className="rounded-[2rem] border border-white/10 bg-[var(--panel)] p-6 shadow-[var(--shadow)]">
+      <div className="card-surface rounded-[2rem] p-6 shadow-[var(--shadow)]">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="mb-2 text-xs uppercase tracking-[0.35em] text-[var(--accent-2)]">
@@ -67,7 +67,7 @@ export function OrderStatus({
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-        <section className="rounded-[2rem] border border-white/10 bg-[var(--panel)] p-6">
+        <section className="card-surface rounded-[2rem] p-6">
           <p className="mb-2 text-xs uppercase tracking-[0.28em] text-[var(--accent-2)]">
             Execution
           </p>
@@ -84,7 +84,7 @@ export function OrderStatus({
             <Detail label="Contact" value={order.contact} />
           </div>
 
-          <div className="mt-4 rounded-[1.5rem] border border-white/8 bg-black/20 p-5">
+          <div className="mt-4 rounded-[1.5rem] border border-white/8 bg-white/10 p-5">
             <div className="text-xs uppercase tracking-[0.24em] text-[var(--muted)]">Input Notes</div>
             <div className="mt-3 whitespace-pre-wrap text-sm leading-7 text-white/88">
               {order.inputNotes}
@@ -92,7 +92,7 @@ export function OrderStatus({
           </div>
         </section>
 
-        <section className="rounded-[2rem] border border-white/10 bg-[var(--panel)] p-6">
+        <section className="card-surface rounded-[2rem] p-6">
           <p className="mb-2 text-xs uppercase tracking-[0.28em] text-[var(--accent-2)]">
             Payment Handle
           </p>
@@ -108,14 +108,14 @@ export function OrderStatus({
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-        <section className="rounded-[2rem] border border-white/10 bg-[var(--panel-strong)] p-6">
+        <section className="rounded-[2rem] border border-white/10 bg-[var(--panel-strong)] p-6 shadow-[var(--shadow-soft)]">
           <p className="mb-3 text-xs uppercase tracking-[0.28em] text-[var(--accent-2)]">Logs</p>
-          <pre className="min-h-[22rem] overflow-x-auto rounded-[1.5rem] border border-white/8 bg-black/35 p-5 font-mono text-xs leading-6 text-[#efe6d7]">
+          <pre className="min-h-[22rem] overflow-x-auto rounded-[1.5rem] border border-white/8 bg-white/18 p-5 font-mono text-xs leading-6 text-[#efe6d7]">
             {logs || "No logs yet."}
           </pre>
         </section>
 
-        <section className="rounded-[2rem] border border-white/10 bg-[var(--panel)] p-6">
+        <section className="card-surface rounded-[2rem] p-6">
           <p className="mb-3 text-xs uppercase tracking-[0.28em] text-[var(--accent-2)]">
             Artifacts
           </p>
@@ -128,7 +128,7 @@ export function OrderStatus({
               artifacts.map((artifact) => (
                 <div
                   key={artifact.name}
-                  className="rounded-[1.5rem] border border-white/8 bg-black/20 p-4"
+                  className="rounded-[1.5rem] border border-white/8 bg-white/10 p-4"
                 >
                   <div className="text-sm font-medium text-white">{artifact.name}</div>
                   <div className="mt-1 text-xs text-[var(--muted)]">

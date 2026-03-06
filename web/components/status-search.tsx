@@ -24,11 +24,11 @@ export function StatusSearch({ initialOrderId = "" }: { initialOrderId?: string 
         value={orderId}
         onChange={(event) => setOrderId(event.target.value)}
         placeholder="Paste order ID"
-        className="min-w-0 flex-1 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-white outline-none transition focus:border-[var(--accent)]"
+        className="min-w-0 flex-1 rounded-full border border-white/10 bg-white/12 px-5 py-3 text-white outline-none transition focus:border-[var(--accent)]"
       />
       <button
         type="submit"
-        className="rounded-full border border-[var(--accent)] bg-[var(--accent)] px-5 py-3 font-medium text-white transition hover:bg-[#ff7a45]"
+        className="accent-gradient rounded-full border border-[var(--accent)] px-5 py-3 font-semibold text-white shadow-[0_8px_22px_rgba(240,125,73,0.28)] transition hover:brightness-105"
       >
         View status
       </button>
