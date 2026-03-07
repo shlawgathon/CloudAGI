@@ -6,3 +6,4 @@ import "./handlers/ai-research";
 import "./handlers/web-scraper";
 import "./handlers/code-review";
 import "./handlers/smart-search";
+import "./handlers/apify-skills";

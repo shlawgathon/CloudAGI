@@ -554,6 +554,36 @@ async function router(req: Request): Promise<Response> {
           sources: { type: "array", items: { type: "string" }, default: ["exa"] },
         },
       },
+      "apify-skills": {
+        type: "object",
+        required: ["skill"],
+        properties: {
+          skill: {
+            type: "string",
+            enum: [
+              "ultimate-scraper",
+              "market-research",
+              "lead-generation",
+              "competitor-intelligence",
+              "trend-analysis",
+              "content-analytics",
+              "brand-monitoring",
+              "influencer-discovery",
+            ],
+            description: "Which Apify skill to invoke",
+          },
+          url: { type: "string", description: "Target URL (for scraper, lead-gen, competitor, content skills)" },
+          urls: { type: "array", items: { type: "string" }, description: "Multiple target URLs" },
+          query: { type: "string", description: "Search query (for market-research)" },
+          brand: { type: "string", description: "Brand name (for brand-monitoring)" },
+          niche: { type: "string", description: "Niche topic (for influencer-discovery)" },
+          term: { type: "string", description: "Trend search term (for trend-analysis)" },
+          terms: { type: "array", items: { type: "string" }, description: "Multiple trend search terms" },
+          platform: { type: "string", description: "Social platform (for influencer-discovery)", default: "instagram" },
+          maxPages: { type: "number", description: "Max pages to crawl", default: 5 },
+          numResults: { type: "number", description: "Number of results to return", default: 20 },
+        },
+      },
       orchestrator: {
         type: "object",
         properties: {
