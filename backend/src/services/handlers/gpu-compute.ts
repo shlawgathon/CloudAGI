@@ -2,6 +2,7 @@ import { registerService } from "../registry";
 import type { ServiceResult } from "../registry";
 import { ModalClient } from "modal";
 import { config } from "../../config";
+import { validateCommand } from "../../utils/command";
 
 let modalClient: ModalClient | null = null;
 
@@ -19,16 +20,25 @@ async function handler(body: Record<string, unknown>): Promise<ServiceResult> {
   }
 
   const gpu = (body.gpu as string) || config.modal.gpu;
-  const image = (body.image as string) || config.modal.image;
   const timeoutSecs = (body.timeoutSecs as number) || config.modal.timeoutSecs;
 
+  const APPROVED_IMAGE_PREFIXES = ["python:", "pytorch/pytorch:", "nvidia/cuda:", "nvcr.io/"];
+  const resolvedImage = (body.image as string) || config.modal.image || "python:3.11-slim";
+  if (!APPROVED_IMAGE_PREFIXES.some((prefix) => resolvedImage.startsWith(prefix))) {
+    return {
+      success: false,
+      error: `Image not allowed: ${resolvedImage}. Approved prefixes: ${APPROVED_IMAGE_PREFIXES.join(", ")}`,
+    };
+  }
+
   try {
+    validateCommand(command);
     const client = getModalClient();
     const app = await client.apps.fromName(config.modal.appName, {
       environment: config.modal.environmentName,
       createIfMissing: true,
     });
-    const img = await client.images.fromRegistry(image);
+    const img = await client.images.fromRegistry(resolvedImage);
     const sandbox = await client.sandboxes.create(app, img, {
       timeoutMs: timeoutSecs * 1000,
       gpu: gpu === "none" ? undefined : gpu,
@@ -50,7 +60,7 @@ async function handler(body: Record<string, unknown>): Promise<ServiceResult> {
           stderr,
           sandboxId: sandbox.sandboxId,
           gpu,
-          image,
+          image: resolvedImage,
         },
       };
     } finally {

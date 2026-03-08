@@ -18,3 +18,17 @@ export function normalizeCommand(command?: string[] | string): string[] {
 
   return [];
 }
+
+const ALLOWED_COMMANDS = ["python", "python3", "pip", "pip3", "nvidia-smi", "nvcc", "bash", "sh"];
+
+export function validateCommand(command: string[]): void {
+  if (!command || command.length === 0) {
+    throw new Error("Command must be a non-empty array");
+  }
+  const cmd = command[0];
+  if (!ALLOWED_COMMANDS.includes(cmd)) {
+    throw new Error(
+      `Command not allowed: ${cmd}. Allowed commands: ${ALLOWED_COMMANDS.join(", ")}`
+    );
+  }
+}

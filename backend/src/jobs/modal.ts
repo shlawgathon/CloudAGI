@@ -3,6 +3,7 @@ import { dirname, resolve } from "node:path";
 import { ModalClient } from "modal";
 import { config } from "../config";
 import type { AgentRole, OrderArtifact, OrderRecord } from "../orders/types";
+import { validateCommand } from "../utils/command";
 
 export interface AgentStepExecutionInput {
   order: OrderRecord;
@@ -143,6 +144,7 @@ export async function runAgentStepOnModal(
   });
 
   try {
+    validateCommand(command);
     const startMs = Date.now();
     const process = await sandbox.exec(command, {
       timeoutMs: config.modal.timeoutSecs * 1000
