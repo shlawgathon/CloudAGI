@@ -72,17 +72,24 @@ async function handler(body: Record<string, unknown>): Promise<ServiceResult> {
     return { success: false, error: "No LLM API key configured (set OPENROUTER_API_KEY or ANTHROPIC_API_KEY)" };
   }
 
-  const prompt = `Review this ${language} code. Focus on: ${focus.join(", ")}.
+  const sanitizedCode = code
+    .replace(/<user_code>/gi, "")
+    .replace(/<\/user_code>/gi, "")
+    .replace(/<system>/gi, "")
+    .replace(/<\/system>/gi, "");
+
+  const prompt = `Review the ${language} code provided below. Focus on: ${focus.join(", ")}.
 
 Return a JSON object with:
 - "issues": array of { "severity": "critical"|"warning"|"info", "line": number|null, "message": string, "suggestion": string }
 - "summary": brief overall assessment
 - "score": 1-10 quality score
 
-Code:
+<user_code>
 \`\`\`${language}
-${code}
-\`\`\``;
+${sanitizedCode}
+\`\`\`
+</user_code>`;
 
   try {
     const text = await callLLM(prompt);
