@@ -869,6 +869,13 @@ async function routerInner(req: Request): Promise<Response> {
   return json({ error: "Not found" }, { status: 404 });
 }
 
+const WEAK_ADMIN_KEYS = ["", "change-me", "dev-admin-key", "admin", "password"];
+if (WEAK_ADMIN_KEYS.includes(config.adminKey)) {
+  console.warn(
+    "⚠️  ADMIN_KEY is weak or unset. Admin endpoints will reject all requests. Set a strong ADMIN_KEY in your environment."
+  );
+}
+
 const server = Bun.serve({
   port: config.port,
   hostname: config.host,
