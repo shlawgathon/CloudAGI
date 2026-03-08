@@ -7,3 +7,4 @@ import "./handlers/web-scraper";
 import "./handlers/code-review";
 import "./handlers/smart-search";
 import "./handlers/apify-skills";
+import "./handlers/coding-task";

@@ -52,6 +52,7 @@ async function registerOneService(
     "web-scraper": `POST ${config.appBaseUrl}/v1/services/web-scraper/execute with JSON body {"url": "https://example.com"}. Requires x402 PAYMENT-SIGNATURE header.`,
     "code-review": `POST ${config.appBaseUrl}/v1/services/code-review/execute with JSON body {"code": "your code here", "language": "python"}. Requires x402 PAYMENT-SIGNATURE header.`,
     "smart-search": `POST ${config.appBaseUrl}/v1/services/smart-search/execute with JSON body {"query": "your search query"}. Requires x402 PAYMENT-SIGNATURE header.`,
+    "coding-task": `POST ${config.appBaseUrl}/v1/services/coding-task/execute with JSON body {"prompt": "Describe a coding task", "strategy": "auto"}. Routes to the best available AI coding agent (Claude Code, Codex, or OpenCode). Requires x402 PAYMENT-SIGNATURE header.`,
   };
 
   const apiDescriptions: Record<string, string> = {
@@ -61,6 +62,7 @@ async function registerOneService(
     "web-scraper": "Extract structured data from websites. Input: {url: string, maxPages?: number} or {actorId: string, input: object}. Output: Array of structured page data.",
     "code-review": "AI code review. Input: {code: string, language?: string, focus?: string[]}. Output: {issues: [{severity, line, message, suggestion}], summary, score}.",
     "smart-search": "Multi-source search aggregator. Input: {query: string, numResults?: number, sources?: string[]}. Output: {query, totalResults, results: [{title, url, snippet, source}]}.",
+    "coding-task": "AI coding task router. Routes to the best available agent (Claude Code, Codex, or OpenCode) based on cost, speed, quality, and credit headroom. Input: {prompt: string, strategy?: 'auto'|'cheapest'|'fastest'|'best-quality', preferredAgent?: string}. Output: {taskId, status, agentId, result, durationMs, routingDecision}.",
   };
 
   const { agentId, planId } = await payments.agents.registerAgentAndPlan(
