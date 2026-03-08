@@ -17,6 +17,14 @@ const defaultPriceUnits =
     : BigInt(Math.round(Number(offerPriceAmount) * 1_000_000).toString());
 const offerPriceUnits = BigInt(process.env.CLOUDAGI_PRICE_UNITS || defaultPriceUnits.toString());
 
+const parseCorsOrigins = (value: string | undefined): string[] => {
+  const raw = value || "https://cloudagi.org";
+  return raw
+    .split(",")
+    .map((o) => o.trim())
+    .filter((o) => o.length > 0 && o !== "*");
+};
+
 export const config = {
   appName: "CloudAGI",
   version: "0.1.0",
@@ -24,7 +32,7 @@ export const config = {
   port: toInt(process.env.PORT, 3000),
   appBaseUrl: process.env.APP_BASE_URL || "http://localhost:3000",
   adminKey: process.env.ADMIN_KEY || "",
-  corsOrigin: process.env.CORS_ORIGIN || "https://cloudagi.org",
+  corsOrigins: parseCorsOrigins(process.env.CORS_ORIGIN),
   offerName: process.env.CLOUDAGI_OFFER_NAME || "CloudAGI Fast Run",
   offerPriceAmount,
   offerPriceLabel,

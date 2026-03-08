@@ -26,14 +26,25 @@ import {
 import { discoverBuyers, discoverSellers } from "./discovery/client";
 import { normalizeCommand, splitCommand } from "./utils/command";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": config.corsOrigin,
-  "Access-Control-Allow-Headers":
-    "Content-Type, PAYMENT-SIGNATURE, payment-signature, x-admin-key, x-trinity-shared-secret, x-order-token",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS"
-};
+const CORS_ALLOW_HEADERS =
+  "Content-Type, PAYMENT-SIGNATURE, payment-signature, x-admin-key, x-trinity-shared-secret, x-order-token";
+const CORS_ALLOW_METHODS = "GET, POST, OPTIONS";
+
+function getCorsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get("origin") || "";
+  const allowedOrigin = config.corsOrigins.includes(origin) ? origin : config.corsOrigins[0] ?? "";
+  return {
+    "Access-Control-Allow-Origin": allowedOrigin,
+    "Access-Control-Allow-Headers": CORS_ALLOW_HEADERS,
+    "Access-Control-Allow-Methods": CORS_ALLOW_METHODS,
+    "Vary": "Origin",
+  };
+}
+
+let _currentReq: Request | null = null;
 
 function json(data: unknown, init?: ResponseInit): Response {
+  const corsHeaders = _currentReq ? getCorsHeaders(_currentReq) : {};
   return Response.json(data, {
     ...init,
     headers: {
@@ -44,6 +55,7 @@ function json(data: unknown, init?: ResponseInit): Response {
 }
 
 function text(data: string, init?: ResponseInit): Response {
+  const corsHeaders = _currentReq ? getCorsHeaders(_currentReq) : {};
   return new Response(data, {
     ...init,
     headers: {
@@ -447,7 +459,7 @@ async function handleDownloadArtifact(req: Request, orderId: string, artifactNam
   const body = await readFile(artifact.path);
   return new Response(body, {
     headers: {
-      ...corsHeaders,
+      ...(_currentReq ? getCorsHeaders(_currentReq) : {}),
       "content-type": artifact.contentType,
       "content-disposition": `attachment; filename="${artifact.name}"`
     }
@@ -525,11 +537,12 @@ async function router(req: Request): Promise<Response> {
 }
 
 async function routerInner(req: Request): Promise<Response> {
+  _currentReq = req;
   const url = new URL(req.url);
   const path = url.pathname;
 
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: getCorsHeaders(req) });
   }
 
   if (path === "/" && req.method === "GET") {
