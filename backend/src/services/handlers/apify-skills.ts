@@ -1,6 +1,7 @@
 import { registerService } from "../registry";
 import type { ServiceResult } from "../registry";
 import { config } from "../../config";
+import { validateExternalUrl } from "../../utils/url-validator";
 
 // ---------------------------------------------------------------------------
 // Apify API helpers
@@ -117,6 +118,9 @@ async function ultimateScraper(
 ): Promise<ServiceResult> {
   const url = body.url as string | undefined;
   if (!url) return { success: false, error: "url is required" };
+  try { validateExternalUrl(url); } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : String(err) };
+  }
 
   const maxPages = (body.maxPages as number) || 5;
   const items = await runActor("apify/website-content-crawler", {
@@ -189,6 +193,12 @@ async function leadGeneration(
     return { success: false, error: "url or urls is required" };
   }
 
+  for (const { url: u } of startUrls) {
+    try { validateExternalUrl(u); } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : String(err) };
+    }
+  }
+
   const items = await runActor("apify/contact-info-scraper", {
     startUrls,
     maxRequestsPerCrawl: (body.maxPages as number) || 20,
@@ -218,6 +228,12 @@ async function competitorIntelligence(
 
   if (!startUrls || startUrls.length === 0) {
     return { success: false, error: "url or urls is required" };
+  }
+
+  for (const { url: u } of startUrls) {
+    try { validateExternalUrl(u); } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : String(err) };
+    }
   }
 
   const maxPages = (body.maxPages as number) || 10;
@@ -294,6 +310,12 @@ async function contentAnalytics(
       success: false,
       error: "url or urls is required (social media profile/post URLs)",
     };
+  }
+
+  for (const { url: u } of startUrls) {
+    try { validateExternalUrl(u); } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : String(err) };
+    }
   }
 
   // Use the website content crawler to extract social media page data

@@ -1,6 +1,7 @@
 import { registerService } from "../registry";
 import type { ServiceResult } from "../registry";
 import { config } from "../../config";
+import { validateExternalUrl } from "../../utils/url-validator";
 
 async function handler(body: Record<string, unknown>): Promise<ServiceResult> {
   const url = body.url as string | undefined;
@@ -12,6 +13,14 @@ async function handler(body: Record<string, unknown>): Promise<ServiceResult> {
 
   if (!url && !actorId) {
     return { success: false, error: "url or actorId is required" };
+  }
+
+  if (url) {
+    try {
+      validateExternalUrl(url);
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : String(err) };
+    }
   }
 
   try {
