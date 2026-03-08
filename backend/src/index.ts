@@ -24,6 +24,7 @@ import {
   serviceRegistry
 } from "./services/registry";
 import { discoverBuyers, discoverSellers } from "./discovery/client";
+import { normalizeCommand, splitCommand } from "./utils/command";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": config.corsOrigin,
@@ -54,27 +55,6 @@ function text(data: string, init?: ResponseInit): Response {
 
 async function parseJson<T>(req: Request): Promise<T> {
   return (await req.json()) as T;
-}
-
-function splitCommand(value: string): string[] {
-  return (
-    value
-      .match(/(?:[^\s"]+|"[^"]*")+/g)
-      ?.map((part) => part.replace(/^"|"$/g, ""))
-      .filter(Boolean) ?? []
-  );
-}
-
-function normalizeCommand(command?: string[] | string): string[] {
-  if (Array.isArray(command)) {
-    return command.map((part) => part.trim()).filter(Boolean);
-  }
-
-  if (typeof command === "string") {
-    return splitCommand(command.trim());
-  }
-
-  return [];
 }
 
 function validateOrderInput(body: Partial<CreateOrderInput>): string | null {

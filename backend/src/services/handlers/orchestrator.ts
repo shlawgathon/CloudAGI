@@ -5,27 +5,7 @@ import type { CreateOrderInput, JobType } from "../../orders/types";
 import { isTrinityConfigured } from "../../orchestration/trinity";
 import { getAllServices, getRegisteredService, registerService } from "../registry";
 import type { ServiceExecutionContext, ServiceResult } from "../registry";
-
-function splitCommand(value: string): string[] {
-  return (
-    value
-      .match(/(?:[^\s"]+|"[^"]*")+/g)
-      ?.map((part) => part.replace(/^"|"$/g, ""))
-      .filter(Boolean) ?? []
-  );
-}
-
-function normalizeCommand(command?: string[] | string): string[] {
-  if (Array.isArray(command)) {
-    return command.map((part) => String(part).trim()).filter(Boolean);
-  }
-
-  if (typeof command === "string") {
-    return splitCommand(command.trim());
-  }
-
-  return [];
-}
+import { normalizeCommand, splitCommand } from "../../utils/command";
 
 function controlledServices() {
   return getAllServices()
