@@ -53,8 +53,25 @@ function text(data: string, init?: ResponseInit): Response {
   });
 }
 
+const MAX_BODY_BYTES = 1_048_576; // 1 MB
+
+class PayloadTooLargeError extends Error {
+  constructor() {
+    super("Payload too large. Maximum request body size is 1MB.");
+    this.name = "PayloadTooLargeError";
+  }
+}
+
 async function parseJson<T>(req: Request): Promise<T> {
-  return (await req.json()) as T;
+  const contentLength = req.headers.get("content-length");
+  if (contentLength && Number(contentLength) > MAX_BODY_BYTES) {
+    throw new PayloadTooLargeError();
+  }
+  const bodyText = await req.text();
+  if (bodyText.length > MAX_BODY_BYTES) {
+    throw new PayloadTooLargeError();
+  }
+  return JSON.parse(bodyText) as T;
 }
 
 function validateOrderInput(body: Partial<CreateOrderInput>): string | null {
@@ -496,6 +513,18 @@ async function handleInternalFinalizeRun(req: Request): Promise<Response> {
 }
 
 async function router(req: Request): Promise<Response> {
+  try {
+    return await routerInner(req);
+  } catch (err) {
+    if (err instanceof PayloadTooLargeError) {
+      return json({ error: err.message }, { status: 413 });
+    }
+    console.error("[router]", err);
+    return json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
+async function routerInner(req: Request): Promise<Response> {
   const url = new URL(req.url);
   const path = url.pathname;
 
