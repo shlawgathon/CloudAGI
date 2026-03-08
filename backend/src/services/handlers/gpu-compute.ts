@@ -67,9 +67,10 @@ async function handler(body: Record<string, unknown>): Promise<ServiceResult> {
       await sandbox.terminate();
     }
   } catch (error) {
+    console.error("[gpu-compute]", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : String(error),
+      error: "GPU compute operation failed",
     };
   }
 }

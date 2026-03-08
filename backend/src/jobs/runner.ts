@@ -97,7 +97,8 @@ export async function startOrderJob(orderId: string, callbackBaseUrl: string): P
     appendOrderLog(orderId, `Trinity run triggered: ${response.runId}`);
     return next;
   } catch (error) {
-    const message = error instanceof Error ? error.stack || error.message : String(error);
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("[startOrderJob]", error);
     appendOrderLog(orderId, `Trinity trigger failed: ${message}`);
     orderStore.setOrchestrationStatus(orderId, "failed");
     throw error;
@@ -221,7 +222,8 @@ export async function executeTrinityStep(input: TrinityExecuteStepInput) {
 
     return updated.orchestration?.agents.find((agent) => agent.stepId === input.stepId);
   } catch (error) {
-    const message = error instanceof Error ? error.stack || error.message : String(error);
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`[executeTrinityStep:${input.role}]`, error);
     orderStore.patchAgentExecution(input.orderId, input.stepId, {
       status: "failed",
       completedAt: new Date().toISOString(),

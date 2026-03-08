@@ -394,12 +394,7 @@ async function handleStartOrder(req: Request, orderId: string): Promise<Response
     nextOrder = await startOrderJob(orderId, getCanonicalBaseUrl());
   } catch (error) {
     console.error("Trinity trigger failed", error);
-    return json(
-      {
-        error: error instanceof Error ? error.message : String(error)
-      },
-      { status: 502 }
-    );
+    return json({ error: "Failed to start orchestration" }, { status: 502 });
   }
 
   return json({
