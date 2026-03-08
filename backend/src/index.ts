@@ -25,6 +25,7 @@ import {
 } from "./services/registry";
 import { discoverBuyers, discoverSellers } from "./discovery/client";
 import { normalizeCommand, splitCommand } from "./utils/command";
+import { checkRateLimit } from "./utils/rate-limiter";
 
 const CORS_ALLOW_HEADERS =
   "Content-Type, PAYMENT-SIGNATURE, payment-signature, x-admin-key, x-trinity-shared-secret, x-order-token";
@@ -540,6 +541,23 @@ async function routerInner(req: Request): Promise<Response> {
   _currentReq = req;
   const url = new URL(req.url);
   const path = url.pathname;
+
+  const clientIp =
+    req.headers.get("x-real-ip") ||
+    req.headers.get("cf-connecting-ip") ||
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    "unknown";
+  const isExpensive = path.endsWith("/start") && req.method === "POST";
+  const rateCheck = checkRateLimit(clientIp, isExpensive);
+  if (!rateCheck.allowed) {
+    return json(
+      { error: "Too many requests. Please slow down." },
+      {
+        status: 429,
+        headers: { "Retry-After": String(rateCheck.retryAfterSecs) }
+      }
+    );
+  }
 
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: getCorsHeaders(req) });
