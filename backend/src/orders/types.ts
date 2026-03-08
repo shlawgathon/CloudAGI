@@ -13,7 +13,8 @@ export type AgentRole =
   | "ai-research"
   | "web-scraper"
   | "code-review"
-  | "smart-search";
+  | "smart-search"
+  | "coding-task";
 
 export type AgentExecutionStatus =
   | "pending"

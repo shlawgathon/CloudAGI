@@ -10,6 +10,7 @@ services:
       - "3001:3001"
     volumes:
       - artifacts:/app/data/artifacts
+      - db-data:/app/data
     restart: unless-stopped
 
   frontend:
@@ -28,3 +29,4 @@ services:
 
 volumes:
   artifacts:
+  db-data:

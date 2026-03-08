@@ -69,6 +69,13 @@ export const config = {
   openrouter: {
     apiKey: process.env.OPENROUTER_API_KEY || "",
     model: process.env.OPENROUTER_MODEL || "anthropic/claude-sonnet-4.6"
+  },
+  agentEconomy: {
+    creditRefreshIntervalMins: toInt(process.env.CREDIT_REFRESH_INTERVAL_MINS, 15),
+    creditCooldownMins: toInt(process.env.CREDIT_COOLDOWN_MINS, 5),
+    taskWorkerIntervalMs: toInt(process.env.TASK_WORKER_INTERVAL_MS, 1000),
+    maxConcurrentTasks: toInt(process.env.MAX_CONCURRENT_TASKS, 3),
+    dbPath: process.env.CLOUDAGI_DB_PATH || "./data/cloudagi.db"
   }
 } as const;
 

@@ -440,7 +440,7 @@ async function handleInternalExecuteStep(req: Request): Promise<Response> {
     orderId: string;
     runId: string;
     stepId: string;
-    role: "gpu-compute" | "ai-research" | "web-scraper" | "code-review" | "smart-search";
+    role: "gpu-compute" | "ai-research" | "web-scraper" | "code-review" | "smart-search" | "coding-task";
   }>(req);
 
   const execution = await executeTrinityStep(body);
@@ -459,7 +459,7 @@ async function handleInternalStepCallback(req: Request): Promise<Response> {
     orderId: string;
     runId: string;
     stepId: string;
-    role: "gpu-compute" | "ai-research" | "web-scraper" | "code-review" | "smart-search";
+    role: "gpu-compute" | "ai-research" | "web-scraper" | "code-review" | "smart-search" | "coding-task";
     status: "succeeded" | "failed";
     message?: string;
   }>(req);
@@ -582,6 +582,16 @@ async function router(req: Request): Promise<Response> {
           platform: { type: "string", description: "Social platform (for influencer-discovery)", default: "instagram" },
           maxPages: { type: "number", description: "Max pages to crawl", default: 5 },
           numResults: { type: "number", description: "Number of results to return", default: 20 },
+        },
+      },
+      "coding-task": {
+        type: "object",
+        required: ["prompt"],
+        properties: {
+          prompt: { type: "string", description: "Coding task description" },
+          strategy: { type: "string", enum: ["auto", "cheapest", "fastest", "best-quality"], default: "auto" },
+          preferredAgent: { type: "string", enum: ["claude-code", "codex", "opencode"], description: "Preferred agent (optional)" },
+          maxTurns: { type: "number", default: 25 },
         },
       },
       orchestrator: {
@@ -817,6 +827,168 @@ async function router(req: Request): Promise<Response> {
     return json({ buyers, total: buyers.length });
   }
 
+  // --- Agent Economy: Credits routes ---
+
+  if (path === "/v1/credits" && req.method === "GET") {
+    try {
+      const { creditMonitor } = await import("./credits/monitor");
+      const providers = creditMonitor.getAllBalances();
+      return json({ providers });
+    } catch (error) {
+      return json({ providers: [], error: "Credit monitor not initialized" });
+    }
+  }
+
+  const creditProviderMatch = path.match(/^\/v1\/credits\/([^/]+)$/);
+  if (creditProviderMatch && req.method === "GET") {
+    try {
+      const { creditMonitor } = await import("./credits/monitor");
+      const { creditStore } = await import("./credits/store");
+      const providerId = creditProviderMatch[1];
+      const balance = creditMonitor.getBalance(providerId);
+      const history = creditStore.getSnapshots(providerId as import("./credits/types").ProviderId, 20);
+      return json({ provider: balance, history });
+    } catch {
+      return json({ error: "Credit monitor not initialized" }, { status: 503 });
+    }
+  }
+
+  const creditSnapshotMatch = path.match(/^\/v1\/credits\/([^/]+)\/snapshot$/);
+  if (creditSnapshotMatch && req.method === "POST") {
+    try {
+      const { creditStore } = await import("./credits/store");
+      const providerId = creditSnapshotMatch[1];
+      const body = await parseJson<{ used: number; limit: number; plan?: string; resetAt?: string }>(req);
+      creditStore.saveSnapshot({
+        providerId: providerId as import("./credits/types").ProviderId,
+        plan: body.plan || null,
+        used: body.used,
+        limit: body.limit,
+        resetAt: body.resetAt || null,
+        pacePercent: null,
+        snapshotAt: new Date().toISOString(),
+      });
+      return json({ ok: true });
+    } catch {
+      return json({ error: "Credit store not initialized" }, { status: 503 });
+    }
+  }
+
+  const creditRefreshMatch = path.match(/^\/v1\/credits\/([^/]+)\/refresh$/);
+  if (creditRefreshMatch && req.method === "POST") {
+    try {
+      const { creditMonitor } = await import("./credits/monitor");
+      const providerId = creditRefreshMatch[1];
+      const cooldown = creditMonitor.getCooldownRemaining(providerId);
+      if (cooldown > 0) {
+        return json({ error: `Refresh on cooldown. Try again in ${cooldown}s.`, cooldownSeconds: cooldown }, { status: 429 });
+      }
+      const balance = await creditMonitor.refreshProvider(providerId, true);
+      return json({ provider: balance });
+    } catch {
+      return json({ error: "Credit monitor not initialized" }, { status: 503 });
+    }
+  }
+
+  if (path === "/v1/credits/config" && req.method === "GET") {
+    try {
+      const { creditStore } = await import("./credits/store");
+      const configs = creditStore.getAllProviderConfigs();
+      return json({ configs });
+    } catch {
+      return json({ configs: [] });
+    }
+  }
+
+  if (path === "/v1/credits/config" && req.method === "POST") {
+    try {
+      const { creditStore } = await import("./credits/store");
+      const body = await parseJson<{ providerId: string; enabled?: boolean; refreshIntervalMins?: number }>(req);
+      if (!body.providerId) return json({ error: "providerId is required" }, { status: 400 });
+      creditStore.setProviderConfig({
+        providerId: body.providerId as import("./credits/types").ProviderId,
+        enabled: body.enabled,
+        refreshIntervalMins: body.refreshIntervalMins,
+      });
+      return json({ ok: true });
+    } catch {
+      return json({ error: "Credit store not initialized" }, { status: 503 });
+    }
+  }
+
+  // --- Agent Economy: Agents routes ---
+
+  if (path === "/v1/agents" && req.method === "GET") {
+    try {
+      const { getAllAgents, getAvailableAgents } = await import("./agents/registry");
+      const all = getAllAgents();
+      const available = await getAvailableAgents();
+      return json({
+        agents: all.map((a) => ({
+          ...a.capability,
+          available: available.some((av) => av.capability.id === a.capability.id),
+        })),
+        totalAvailable: available.length,
+      });
+    } catch {
+      return json({ agents: [], totalAvailable: 0 });
+    }
+  }
+
+  // --- Agent Economy: Tasks routes ---
+
+  if (path === "/v1/tasks" && req.method === "GET") {
+    try {
+      const { taskStore } = await import("./queue/store");
+      const limit = Number(new URL(req.url).searchParams.get("limit")) || 20;
+      const tasks = taskStore.list(limit);
+      return json({ tasks });
+    } catch {
+      return json({ tasks: [] });
+    }
+  }
+
+  if (path === "/v1/tasks" && req.method === "POST") {
+    try {
+      const { taskWorker } = await import("./queue/worker");
+      const body = await parseJson<{
+        prompt: string;
+        strategy?: string;
+        preferredAgent?: string;
+        workingDirectory?: string;
+        maxTurns?: number;
+      }>(req);
+
+      if (!body.prompt?.trim()) {
+        return json({ error: "prompt is required" }, { status: 400 });
+      }
+
+      const task = await taskWorker.submitTask({
+        prompt: body.prompt.trim(),
+        strategy: (body.strategy as "auto" | "cheapest" | "fastest" | "best-quality") || "auto",
+        preferredAgent: body.preferredAgent as "claude-code" | "codex" | "opencode" | undefined,
+        workingDirectory: body.workingDirectory,
+        maxTurns: body.maxTurns,
+      });
+
+      return json({ task }, { status: 201 });
+    } catch (error) {
+      return json({ error: error instanceof Error ? error.message : "Task submission failed" }, { status: 500 });
+    }
+  }
+
+  const taskMatch = path.match(/^\/v1\/tasks\/([^/]+)$/);
+  if (taskMatch && req.method === "GET") {
+    try {
+      const { taskStore } = await import("./queue/store");
+      const task = taskStore.get(taskMatch[1]);
+      if (!task) return json({ error: "Task not found" }, { status: 404 });
+      return json({ task });
+    } catch {
+      return json({ error: "Task store not initialized" }, { status: 503 });
+    }
+  }
+
   // --- Internal Trinity routes ---
 
   if (path === "/internal/trinity/execute-step" && req.method === "POST") {
@@ -841,3 +1013,22 @@ const server = Bun.serve({
 });
 
 console.log(`${config.appName} running at ${server.url}`);
+
+// Start Agent Economy services (non-blocking)
+(async () => {
+  try {
+    const { creditMonitor } = await import("./credits/monitor");
+    creditMonitor.start();
+    console.log("[agent-economy] Credit monitor started");
+  } catch (error) {
+    console.warn("[agent-economy] Credit monitor failed to start:", error);
+  }
+
+  try {
+    const { taskWorker } = await import("./queue/worker");
+    taskWorker.start(config.agentEconomy.taskWorkerIntervalMs);
+    console.log("[agent-economy] Task worker started");
+  } catch (error) {
+    console.warn("[agent-economy] Task worker failed to start:", error);
+  }
+})();
