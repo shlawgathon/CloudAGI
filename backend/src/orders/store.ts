@@ -33,6 +33,7 @@ class OrderStore {
     const order: OrderRecord = {
       ...input,
       id: randomUUID(),
+      readToken: randomUUID(),
       priceLabel,
       status: "awaiting_payment",
       createdAt: now,

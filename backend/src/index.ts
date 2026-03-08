@@ -28,7 +28,7 @@ import { discoverBuyers, discoverSellers } from "./discovery/client";
 const corsHeaders = {
   "Access-Control-Allow-Origin": config.corsOrigin,
   "Access-Control-Allow-Headers":
-    "Content-Type, PAYMENT-SIGNATURE, payment-signature, x-admin-key, x-trinity-shared-secret, x-demo",
+    "Content-Type, PAYMENT-SIGNATURE, payment-signature, x-admin-key, x-trinity-shared-secret, x-order-token",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS"
 };
 
@@ -134,20 +134,37 @@ function hasValidTrinitySecret(req: Request): boolean {
   );
 }
 
-function getPublicBaseUrl(req: Request): string {
+function getCanonicalBaseUrl(): string {
+  return config.appBaseUrl.replace(/\/+$/, "");
+}
+
+function getOrderReadToken(req: Request): string | null {
   const url = new URL(req.url);
-  const forwardedProto = req.headers.get("x-forwarded-proto");
-  const forwardedHost = req.headers.get("x-forwarded-host") || req.headers.get("host");
+  return req.headers.get("x-order-token") || url.searchParams.get("token");
+}
 
-  if (forwardedProto && forwardedHost) {
-    return `${forwardedProto}://${forwardedHost}`;
+function withOrderToken(url: string, readToken: string): string {
+  const parsed = new URL(url);
+  parsed.searchParams.set("token", readToken);
+  return parsed.toString();
+}
+
+function canReadOrder(req: Request, orderId: string): boolean {
+  if (requireAdminKey(req)) {
+    return true;
   }
 
-  if (forwardedHost) {
-    return `${url.protocol}//${forwardedHost}`;
+  const order = orderStore.get(orderId);
+  if (!order?.readToken) {
+    return false;
   }
 
-  return url.origin;
+  return getOrderReadToken(req) === order.readToken;
+}
+
+function sanitizeOrder<T extends { accessToken?: string; readToken?: string }>(order: T): Omit<T, "accessToken" | "readToken"> {
+  const { accessToken: _accessToken, readToken: _readToken, ...safeOrder } = order;
+  return safeOrder;
 }
 
 async function paymentRequiredResponse(
@@ -173,16 +190,17 @@ async function paymentRequiredResponse(
   );
 }
 
-function buildOrderCreationResponse(req: Request, orderId: string) {
+function buildOrderCreationResponse(orderId: string) {
   const order = orderStore.get(orderId);
   if (!order) {
     throw new Error(`Order ${orderId} not found`);
   }
 
-  const baseUrl = getPublicBaseUrl(req);
+  const baseUrl = getCanonicalBaseUrl();
 
   return {
-    order,
+    order: sanitizeOrder(order),
+    readToken: order.readToken,
     payment: isNeverminedConfigured()
       ? {
           type: "nevermined-x402",
@@ -198,10 +216,10 @@ function buildOrderCreationResponse(req: Request, orderId: string) {
             "Nevermined is not configured yet. Set NVM_API_KEY, NVM_AGENT_ID, and NVM_PLAN_ID."
         },
     links: {
-      order: `${baseUrl}/v1/orders/${order.id}`,
+      order: withOrderToken(`${baseUrl}/v1/orders/${order.id}`, order.readToken),
       start: `${baseUrl}/v1/orders/${order.id}/start`,
-      logs: `${baseUrl}/v1/orders/${order.id}/logs`,
-      artifacts: `${baseUrl}/v1/orders/${order.id}/artifacts`
+      logs: withOrderToken(`${baseUrl}/v1/orders/${order.id}/logs`, order.readToken),
+      artifacts: withOrderToken(`${baseUrl}/v1/orders/${order.id}/artifacts`, order.readToken)
     }
   };
 }
@@ -219,7 +237,7 @@ async function handleCreateOrder(req: Request): Promise<Response> {
     isNeverminedConfigured() ? getPlanMetadata() : undefined
   );
 
-  return json(buildOrderCreationResponse(req, order.id), { status: 201 });
+  return json(buildOrderCreationResponse(order.id), { status: 201 });
 }
 
 async function handleCreateAgentOrder(req: Request): Promise<Response> {
@@ -243,7 +261,7 @@ async function handleCreateAgentOrder(req: Request): Promise<Response> {
 
   return json(
     {
-      ...buildOrderCreationResponse(req, order.id),
+      ...buildOrderCreationResponse(order.id),
       requestedBy: {
         agentName: body.agentName?.trim() || null,
         agentId: body.agentId?.trim() || null
@@ -253,15 +271,17 @@ async function handleCreateAgentOrder(req: Request): Promise<Response> {
   );
 }
 
-async function handleGetOrder(orderId: string): Promise<Response> {
+async function handleGetOrder(req: Request, orderId: string): Promise<Response> {
   const order = orderStore.get(orderId);
   if (!order) {
     return json({ error: "Order not found" }, { status: 404 });
   }
 
-  // Strip accessToken from response (internal only)
-  const { accessToken: _token, ...safeOrder } = order;
-  return json({ order: safeOrder, compute: order.compute });
+  if (!canReadOrder(req, orderId)) {
+    return json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  return json({ order: sanitizeOrder(order), compute: order.compute });
 }
 
 async function handleListOrders(req: Request): Promise<Response> {
@@ -269,7 +289,7 @@ async function handleListOrders(req: Request): Promise<Response> {
     return json({ error: "Forbidden" }, { status: 403 });
   }
 
-  return json({ orders: orderStore.list() });
+  return json({ orders: orderStore.list().map((order) => sanitizeOrder(order)) });
 }
 
 async function handleStartOrder(req: Request, orderId: string): Promise<Response> {
@@ -279,6 +299,10 @@ async function handleStartOrder(req: Request, orderId: string): Promise<Response
   }
 
   if (order.status !== "awaiting_payment") {
+    if (!canReadOrder(req, orderId)) {
+      return json({ error: "Forbidden" }, { status: 403 });
+    }
+
     return json({
       ok: true,
       orderId,
@@ -287,9 +311,7 @@ async function handleStartOrder(req: Request, orderId: string): Promise<Response
     });
   }
 
-  const isDemo = req.headers.get("x-demo") === "true";
-
-  if (!isDemo && !isNeverminedConfigured()) {
+  if (!isNeverminedConfigured()) {
     return json({ error: "Nevermined is not configured" }, { status: 503 });
   }
 
@@ -297,61 +319,55 @@ async function handleStartOrder(req: Request, orderId: string): Promise<Response
     return json({ error: "Trinity is not configured" }, { status: 503 });
   }
 
-  // Demo mode: skip payment verification + settlement
-  if (!isDemo) {
-    const accessToken = getAccessToken(req);
-    const endpoint = `/v1/orders/${orderId}/start`;
+  const accessToken = getAccessToken(req);
+  const endpoint = `/v1/orders/${orderId}/start`;
 
-    if (!accessToken) {
-      return await paymentRequiredResponse(
-        endpoint,
-        "POST",
-        "Payment required. Send a valid x402 access token in PAYMENT-SIGNATURE."
-      );
-    }
-
-    let verification;
-    try {
-      verification = await verifyAccessToken(accessToken, endpoint, "POST", 1n);
-    } catch (error) {
-      console.error("Nevermined verification failed", error);
-      return await paymentRequiredResponse(
-        endpoint,
-        "POST",
-        config.nevermined.paymentRail === "fiat"
-          ? "Payment verification failed. Confirm the subscriber account completed the Nevermined Stripe checkout and minted a fresh x402 token for this plan."
-          : "Payment verification failed. Confirm the subscriber account has ordered the plan and mint a fresh x402 token for this plan."
-      );
-    }
-
-    if (!verification.isValid) {
-      return await paymentRequiredResponse(
-        endpoint,
-        "POST",
-        verification.invalidReason ||
-          "Payment required. Order the plan and send a fresh x402 token for this endpoint."
-      );
-    }
-
-    let settlement;
-    try {
-      settlement = await settleAccessToken(accessToken, endpoint, "POST", 1n);
-    } catch (error) {
-      console.error("Nevermined settlement failed", error);
-      return await paymentRequiredResponse(
-        endpoint,
-        "POST",
-        config.nevermined.paymentRail === "fiat"
-          ? "Payment settlement failed. Re-check the Nevermined Stripe-backed plan purchase and mint a fresh x402 token before retrying."
-          : "Payment settlement failed. Re-check plan balance and mint a fresh x402 token before retrying."
-      );
-    }
-
-    // Stash the access token on the order for per-step settlement
-    orderStore.stashAccessToken(orderId, accessToken);
-  } else {
-    console.log(`[demo] Skipping payment for order ${orderId}`);
+  if (!accessToken) {
+    return await paymentRequiredResponse(
+      endpoint,
+      "POST",
+      "Payment required. Send a valid x402 access token in PAYMENT-SIGNATURE."
+    );
   }
+
+  let verification;
+  try {
+    verification = await verifyAccessToken(accessToken, endpoint, "POST", 1n);
+  } catch (error) {
+    console.error("Nevermined verification failed", error);
+    return await paymentRequiredResponse(
+      endpoint,
+      "POST",
+      config.nevermined.paymentRail === "fiat"
+        ? "Payment verification failed. Confirm the subscriber account completed the Nevermined Stripe checkout and minted a fresh x402 token for this plan."
+        : "Payment verification failed. Confirm the subscriber account has ordered the plan and mint a fresh x402 token for this plan."
+    );
+  }
+
+  if (!verification.isValid) {
+    return await paymentRequiredResponse(
+      endpoint,
+      "POST",
+      verification.invalidReason ||
+        "Payment required. Order the plan and send a fresh x402 token for this endpoint."
+    );
+  }
+
+  try {
+    await settleAccessToken(accessToken, endpoint, "POST", 1n);
+  } catch (error) {
+    console.error("Nevermined settlement failed", error);
+    return await paymentRequiredResponse(
+      endpoint,
+      "POST",
+      config.nevermined.paymentRail === "fiat"
+        ? "Payment settlement failed. Re-check the Nevermined Stripe-backed plan purchase and mint a fresh x402 token before retrying."
+        : "Payment settlement failed. Re-check plan balance and mint a fresh x402 token before retrying."
+    );
+  }
+
+  // Stash the access token on the order for per-step settlement
+  orderStore.stashAccessToken(orderId, accessToken);
 
   // Initialize compute summary with requested GPU hours
   const gpuHours = order.gpuHours || 1;
@@ -365,7 +381,7 @@ async function handleStartOrder(req: Request, orderId: string): Promise<Response
 
   let nextOrder;
   try {
-    nextOrder = await startOrderJob(orderId, getPublicBaseUrl(req));
+    nextOrder = await startOrderJob(orderId, getCanonicalBaseUrl());
   } catch (error) {
     console.error("Trinity trigger failed", error);
     return json(
@@ -382,16 +398,18 @@ async function handleStartOrder(req: Request, orderId: string): Promise<Response
     status: nextOrder.status,
     orchestration: nextOrder.orchestration,
     compute: nextOrder.compute,
-    payment: isDemo
-      ? { demo: true, message: "Payment skipped in demo mode" }
-      : { success: true }
+    payment: { success: true }
   });
 }
 
-async function handleOrderLogs(orderId: string): Promise<Response> {
+async function handleOrderLogs(req: Request, orderId: string): Promise<Response> {
   const order = orderStore.get(orderId);
   if (!order) {
     return json({ error: "Order not found" }, { status: 404 });
+  }
+
+  if (!canReadOrder(req, orderId)) {
+    return json({ error: "Forbidden" }, { status: 403 });
   }
 
   return text(order.logs, {
@@ -401,19 +419,27 @@ async function handleOrderLogs(orderId: string): Promise<Response> {
   });
 }
 
-async function handleOrderArtifacts(orderId: string): Promise<Response> {
+async function handleOrderArtifacts(req: Request, orderId: string): Promise<Response> {
   const order = orderStore.get(orderId);
   if (!order) {
     return json({ error: "Order not found" }, { status: 404 });
   }
 
+  if (!canReadOrder(req, orderId)) {
+    return json({ error: "Forbidden" }, { status: 403 });
+  }
+
   return json({ artifacts: order.artifacts });
 }
 
-async function handleDownloadArtifact(orderId: string, artifactName: string): Promise<Response> {
+async function handleDownloadArtifact(req: Request, orderId: string, artifactName: string): Promise<Response> {
   const order = orderStore.get(orderId);
   if (!order) {
     return json({ error: "Order not found" }, { status: 404 });
+  }
+
+  if (!canReadOrder(req, orderId)) {
+    return json({ error: "Forbidden" }, { status: 403 });
   }
 
   const artifact = order.artifacts.find((item) => item.name === artifactName);
@@ -506,7 +532,7 @@ async function router(req: Request): Promise<Response> {
   }
 
   if (path === "/.well-known/agent.json" && req.method === "GET") {
-    const baseUrl = getPublicBaseUrl(req);
+    const baseUrl = getCanonicalBaseUrl();
 
     const inputSchemas: Record<string, object> = {
       "gpu-compute": {
@@ -703,7 +729,7 @@ async function router(req: Request): Promise<Response> {
 
   const orderMatch = path.match(/^\/v1\/orders\/([^/]+)$/);
   if (orderMatch && req.method === "GET") {
-    return handleGetOrder(orderMatch[1]);
+    return handleGetOrder(req, orderMatch[1]);
   }
 
   const startMatch = path.match(/^\/v1\/orders\/([^/]+)\/start$/);
@@ -713,17 +739,17 @@ async function router(req: Request): Promise<Response> {
 
   const logsMatch = path.match(/^\/v1\/orders\/([^/]+)\/logs$/);
   if (logsMatch && req.method === "GET") {
-    return handleOrderLogs(logsMatch[1]);
+    return handleOrderLogs(req, logsMatch[1]);
   }
 
   const artifactsMatch = path.match(/^\/v1\/orders\/([^/]+)\/artifacts$/);
   if (artifactsMatch && req.method === "GET") {
-    return handleOrderArtifacts(artifactsMatch[1]);
+    return handleOrderArtifacts(req, artifactsMatch[1]);
   }
 
   const artifactDownloadMatch = path.match(/^\/v1\/orders\/([^/]+)\/artifacts\/([^/]+)$/);
   if (artifactDownloadMatch && req.method === "GET") {
-    return handleDownloadArtifact(artifactDownloadMatch[1], artifactDownloadMatch[2]);
+    return handleDownloadArtifact(req, artifactDownloadMatch[1], artifactDownloadMatch[2]);
   }
 
   // --- Service catalog routes ---
@@ -795,7 +821,7 @@ async function router(req: Request): Promise<Response> {
     const body = await parseJson<Record<string, unknown>>(req);
     const result = await svc.handler(body, {
       accessToken: getAccessToken(req) || undefined,
-      baseUrl: getPublicBaseUrl(req),
+      baseUrl: getCanonicalBaseUrl(),
       endpoint: `/v1/services/${serviceId}/execute`,
       method: "POST",
       service: svc

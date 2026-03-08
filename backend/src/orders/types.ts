@@ -106,6 +106,7 @@ export interface ComputeSummary {
 
 export interface OrderRecord extends CreateOrderInput {
   id: string;
+  readToken: string;
   priceLabel: string;
   status: OrderStatus;
   createdAt: string;
