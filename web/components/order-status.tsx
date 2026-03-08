@@ -27,11 +27,13 @@ function Detail({ label, value }: { label: string; value: React.ReactNode }) {
 export function OrderStatus({
   order,
   logs,
-  artifacts
+  artifacts,
+  readToken
 }: {
   order: Order;
   logs: string;
   artifacts: Artifact[];
+  readToken?: string;
 }) {
   return (
     <div className="space-y-6">
@@ -226,7 +228,7 @@ export function OrderStatus({
                     {artifact.contentType} · {artifact.sizeBytes} bytes
                   </div>
                   <a
-                    href={artifactDownloadUrl(order.id, artifact.name)}
+                    href={artifactDownloadUrl(order.id, artifact.name, readToken)}
                     className="mt-4 inline-flex rounded-full border border-white/12 bg-[linear-gradient(180deg,rgba(18,30,47,0.98),rgba(10,17,29,0.98))] px-4 py-2 text-sm font-medium text-white transition hover:bg-[linear-gradient(180deg,rgba(24,38,58,0.98),rgba(12,21,35,0.98))]"
                   >
                     Download

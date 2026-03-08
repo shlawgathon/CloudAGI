@@ -166,7 +166,13 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 /* ─── Main dashboard view ─── */
-export function DashboardView({ orderId }: { orderId: string }) {
+export function DashboardView({
+  orderId,
+  readToken
+}: {
+  orderId: string;
+  readToken?: string;
+}) {
   const [order, setOrder] = useState<Order | null>(null);
   const [logs, setLogs] = useState("");
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
@@ -179,9 +185,9 @@ export function DashboardView({ orderId }: { orderId: string }) {
   const poll = useCallback(async () => {
     try {
       const [o, l, a] = await Promise.all([
-        fetchOrderClient(orderId),
-        fetchLogsClient(orderId),
-        fetchArtifactsClient(orderId)
+        fetchOrderClient(orderId, readToken),
+        fetchLogsClient(orderId, readToken),
+        fetchArtifactsClient(orderId, readToken)
       ]);
       setOrder(o);
       setLogs(l);
@@ -194,7 +200,7 @@ export function DashboardView({ orderId }: { orderId: string }) {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Polling failed");
     }
-  }, [orderId]);
+  }, [orderId, readToken]);
 
   useEffect(() => {
     poll();
@@ -336,7 +342,7 @@ export function DashboardView({ orderId }: { orderId: string }) {
                     {artifact.contentType} · {artifact.sizeBytes} bytes
                   </div>
                   <a
-                    href={artifactDownloadUrl(orderId, artifact.name)}
+                    href={artifactDownloadUrl(orderId, artifact.name, readToken)}
                     className="mt-3 inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/[0.04] px-4 py-2 text-xs font-medium text-white transition hover:bg-white/[0.08]"
                   >
                     <Download className="h-3 w-3" />
@@ -357,7 +363,10 @@ export function DashboardView({ orderId }: { orderId: string }) {
         <Link href="/generate" className="transition hover:text-white">
           Create another order
         </Link>
-        <Link href={`/orders/${orderId}`} className="transition hover:text-white">
+        <Link
+          href={readToken ? `/orders/${orderId}?token=${encodeURIComponent(readToken)}` : `/orders/${orderId}`}
+          className="transition hover:text-white"
+        >
           Static view
         </Link>
       </div>

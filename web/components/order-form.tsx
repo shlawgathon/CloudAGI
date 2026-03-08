@@ -135,20 +135,9 @@ export function OrderForm({
             try {
               const response = await createOrder(payload);
               setResult(response);
-
-              // In demo mode, auto-start the order (skip payment)
-              if (demo) {
-                try {
-                  await fetch(`/api/v1/orders/${response.order.id}/start`, {
-                    method: "POST",
-                    headers: { "x-demo": "true" }
-                  });
-                } catch {
-                  // non-blocking
-                }
-              }
-
-              router.push(`/dashboard/${response.order.id}`);
+              router.push(
+                `/dashboard/${response.order.id}?token=${encodeURIComponent(response.readToken)}`
+              );
             } catch (submissionError) {
               setError(
                 submissionError instanceof Error

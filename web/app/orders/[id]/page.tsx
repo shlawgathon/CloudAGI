@@ -7,17 +7,20 @@ import { fetchArtifacts, fetchLogs, fetchOrder } from "@/lib/api";
 export const dynamic = "force-dynamic";
 
 export default async function OrderPage({
-  params
+  params,
+  searchParams
 }: {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{ token?: string }>;
 }) {
   const { id } = await params;
+  const token = (await searchParams)?.token;
 
   try {
     const [order, logs, artifacts] = await Promise.all([
-      fetchOrder(id),
-      fetchLogs(id),
-      fetchArtifacts(id)
+      fetchOrder(id, token),
+      fetchLogs(id, token),
+      fetchArtifacts(id, token)
     ]);
 
     return (
@@ -36,7 +39,7 @@ export default async function OrderPage({
             </p>
           </div>
           <div className="flex flex-col gap-3 lg:min-w-[22rem]">
-            <StatusSearch initialOrderId={id} />
+            <StatusSearch initialOrderId={id} initialToken={token} />
             <div className="flex items-center justify-center gap-4 text-sm text-[var(--muted)]">
               <Link href="/" className="transition hover:text-white">
                 Back home
@@ -48,7 +51,7 @@ export default async function OrderPage({
           </div>
         </header>
 
-        <OrderStatus order={order} logs={logs} artifacts={artifacts} />
+        <OrderStatus order={order} logs={logs} artifacts={artifacts} readToken={token} />
       </main>
     );
   } catch {

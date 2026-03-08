@@ -3,7 +3,40 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export function StatusSearch({ initialOrderId = "" }: { initialOrderId?: string }) {
+function resolveOrderSearchTarget(input: string, fallbackToken?: string) {
+  const trimmed = input.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  try {
+    const url = new URL(trimmed);
+    const segments = url.pathname.split("/").filter(Boolean);
+    const orderIndex = segments.findIndex((segment) => segment === "orders" || segment === "dashboard");
+    const orderId = orderIndex >= 0 ? segments[orderIndex + 1] : "";
+    if (!orderId) {
+      return null;
+    }
+
+    const token = url.searchParams.get("token") || fallbackToken;
+    return token
+      ? `/orders/${orderId}?token=${encodeURIComponent(token)}`
+      : `/orders/${orderId}`;
+  } catch {
+    const token = fallbackToken?.trim();
+    return token
+      ? `/orders/${trimmed}?token=${encodeURIComponent(token)}`
+      : `/orders/${trimmed}`;
+  }
+}
+
+export function StatusSearch({
+  initialOrderId = "",
+  initialToken
+}: {
+  initialOrderId?: string;
+  initialToken?: string;
+}) {
   const [orderId, setOrderId] = useState(initialOrderId);
   const router = useRouter();
 
@@ -17,13 +50,18 @@ export function StatusSearch({ initialOrderId = "" }: { initialOrderId?: string 
           return;
         }
 
-        router.push(`/orders/${trimmed}`);
+        const target = resolveOrderSearchTarget(trimmed, initialToken);
+        if (!target) {
+          return;
+        }
+
+        router.push(target);
       }}
     >
       <input
         value={orderId}
         onChange={(event) => setOrderId(event.target.value)}
-        placeholder="Paste order ID or live demo run"
+        placeholder="Paste order ID or secure status link"
         className="min-w-0 flex-1 rounded-full border border-white/10 bg-white/[0.04] px-5 py-2.5 text-white outline-none transition focus:border-[var(--accent)] focus:bg-white/[0.08]"
       />
       <button

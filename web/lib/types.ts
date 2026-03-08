@@ -92,6 +92,7 @@ export interface Artifact {
 
 export interface CreateOrderResponse {
   order: Order;
+  readToken: string;
   payment:
     | {
         type: "nevermined-x402";
